@@ -116,7 +116,119 @@ function render(){
  const candidates=all.map(task=>({task,key:nextOccurrence(task)})).filter(x=>x.key).sort((a,b)=>occurrenceDate(a.task,a.key)-occurrenceDate(b.task,b.key)),next=candidates[0];if(next){$('#heroTitle').textContent=next.task.title;$('#heroMessage').textContent=`${formatDue(next.task,next.key)} • ${t(`category_${next.task.category}`)}`;$('#heroBadge').textContent=d('next');$('#mascot').src=categories[next.task.category].asset;$('#mascot').alt=`Qubi ${next.task.category.toLowerCase()} ruhában`;}else{$('#heroTitle').textContent=d('allDoneHero');$('#heroMessage').textContent=d('proud');$('#heroBadge').textContent=d('great');$('#mascot').src='assets/qubi-personal.png'}
  $('#upcomingText').textContent=candidates.length?`${candidates.length} ${d('active')} — ${formatDue(next.task,next.key)}.`:d('upcoming');renderCalendar();checkReminders();
 }
-function renderCalendar(){const now=new Date(),monday=new Date(now);monday.setDate(now.getDate()-((now.getDay()+6)%7));const days=d('days');$('#weekGrid').innerHTML=days.map((label,i)=>{const date=new Date(monday);date.setDate(monday.getDate()+i);const key=date.toLocaleDateString('sv-SE'),count=activeTasks().filter(t=>occursOn(t,key)).length;return `<button class="day ${key===todayKey()?'today':''}" data-date="${key}"><span>${label}</span><strong>${date.getDate()}</strong>${count?`<i>${count}</i>`:''}</button>`}).join('');const upcoming=activeTasks().map(task=>({task,key:nextOccurrence(task)})).filter(x=>x.key).sort((a,b)=>occurrenceDate(a.task,a.key)-occurrenceDate(b.task,b.key)).slice(0,20);$('#calendarTasks').innerHTML=upcoming.map(({task,key})=>`<div class="calendar-task card"><span>${categories[task.category].icon}</span><div><strong>${escapeHtml(task.title)}</strong><small>${formatDue(task,key)}${task.recurrence?` • ↻ ${recurrenceLabel(task)}`:''}</small></div></div>`).join('')||`<p class="empty-copy">${d('noUpcoming')}</p>`}
+let calMode='week',calAnchorDate=new Date();
+
+function renderCalendar(){
+ const key=todayKey();
+ const anchorStr=calAnchorDate.toLocaleDateString('sv-SE');
+ const lang=getLang();
+ const locale=(uiText[lang]||uiText.hu).locale;
+ const dayNames=d('days');
+ 
+ let periodLabel='';
+ let gridHtml='';
+ 
+ if(calMode==='day'){
+  periodLabel=calAnchorDate.toLocaleDateString(locale,{year:'numeric',month:'long',day:'numeric',weekday:'long'});
+  const dayKey=calAnchorDate.toLocaleDateString('sv-SE');
+  const count=activeTasks().filter(t=>occursOn(t,dayKey)).length;
+  const dayOfWeekIndex=(calAnchorDate.getDay()+6)%7;
+  gridHtml=`<div class="week-card"><button class="day ${dayKey===key?'today':''}" data-date="${dayKey}"><span>${dayNames[dayOfWeekIndex]}</span><strong>${calAnchorDate.getDate()}</strong>${count?`<i>${count}</i>`:''}</button></div>`;
+ } else if(calMode==='week'){
+  const monday=new Date(calAnchorDate);
+  monday.setDate(calAnchorDate.getDate()-((calAnchorDate.getDay()+6)%7));
+  const sunday=new Date(monday);
+  sunday.setDate(monday.getDate()+6);
+  periodLabel=`${monday.toLocaleDateString(locale,{month:'short',day:'numeric'})} – ${sunday.toLocaleDateString(locale,{month:'short',day:'numeric',year:'numeric'})}`;
+  
+  gridHtml=`<div class="week-card">`+dayNames.map((label,i)=>{
+   const date=new Date(monday);
+   date.setDate(monday.getDate()+i);
+   const dKey=date.toLocaleDateString('sv-SE');
+   const count=activeTasks().filter(t=>occursOn(t,dKey)).length;
+   return `<button class="day ${dKey===key?'today':''}" data-date="${dKey}"><span>${label}</span><strong>${date.getDate()}</strong>${count?`<i>${count}</i>`:''}</button>`;
+  }).join('')+`</div>`;
+ } else if(calMode==='month'){
+  const year=calAnchorDate.getFullYear();
+  const month=calAnchorDate.getMonth();
+  periodLabel=calAnchorDate.toLocaleDateString(locale,{year:'numeric',month:'long'});
+  
+  const firstDay=new Date(year,month,1);
+  const startOffset=(firstDay.getDay()+6)%7;
+  const startDate=new Date(firstDay);
+  startDate.setDate(firstDay.getDate()-startOffset);
+  
+  let daysArray=[];
+  for(let i=0;i<42;i++){
+   const date=new Date(startDate);
+   date.setDate(startDate.getDate()+i);
+   daysArray.push(date);
+  }
+  
+  gridHtml=`<div class="month-grid">`+daysArray.map(date=>{
+   const dKey=date.toLocaleDateString('sv-SE');
+   const isOtherMonth=date.getMonth()!==month;
+   const count=activeTasks().filter(t=>occursOn(t,dKey)).length;
+   return `<button class="day ${dKey===key?'today':''} ${isOtherMonth?'other-month':''}" data-date="${dKey}"><strong>${date.getDate()}</strong>${count?`<i>${count}</i>`:''}</button>`;
+  }).join('')+`</div>`;
+ }
+ 
+ $('#calendarPeriodLabel').textContent=periodLabel;
+ $('#calendarGrid').innerHTML=gridHtml;
+ 
+ $$('.cal-mode-btn').forEach(btn=>{
+  btn.classList.toggle('active',btn.dataset.calMode===calMode);
+ });
+ 
+ const viewTasksDate=calAnchorDate.toLocaleDateString('sv-SE');
+ const tasksForSelected=activeTasks().filter(t=>occursOn(t,viewTasksDate)).sort((a,b)=>occurrenceDate(a,viewTasksDate)-occurrenceDate(b,viewTasksDate));
+ 
+ $('#calendarTasks').innerHTML=tasksForSelected.length?tasksForSelected.map(task=>`<div class="calendar-task card" data-id="${task.id}" data-date="${viewTasksDate}"><span>${categories[task.category].icon}</span><div><strong>${escapeHtml(task.title)}</strong>${task.description?`<p class="task-desc">${escapeHtml(task.description)}</p>`:''}<small>${formatDue(task,viewTasksDate)}${task.recurrence?` • ↻ ${recurrenceLabel(task)}`:''}</small></div></div>`).join(''):`<p class="empty-copy">${d('noUpcoming')}</p>`;
+}
+
+$$('.cal-mode-btn').forEach(btn=>{
+ btn.onclick=()=>{
+  calMode=btn.dataset.calMode;
+  renderCalendar();
+ };
+});
+
+$('#calPrevBtn').onclick=()=>{
+ if(calMode==='day')calAnchorDate.setDate(calAnchorDate.getDate()-1);
+ else if(calMode==='week')calAnchorDate.setDate(calAnchorDate.getDate()-7);
+ else if(calMode==='month')calAnchorDate.setMonth(calAnchorDate.getMonth()-1);
+ renderCalendar();
+};
+
+$('#calNextBtn').onclick=()=>{
+ if(calMode==='day')calAnchorDate.setDate(calAnchorDate.getDate()+1);
+ else if(calMode==='week')calAnchorDate.setDate(calAnchorDate.getDate()+7);
+ else if(calMode==='month')calAnchorDate.setMonth(calAnchorDate.getMonth()+1);
+ renderCalendar();
+};
+
+$('#calTodayBtn').onclick=()=>{
+ calAnchorDate=new Date();
+ renderCalendar();
+};
+
+$('#calendarGrid').onclick=e=>{
+ const dayBtn=e.target.closest('.day[data-date]');
+ if(dayBtn){
+  const dateStr=dayBtn.dataset.date;
+  calAnchorDate=new Date(`${dateStr}T12:00:00`);
+  renderCalendar();
+ }
+};
+
+$('#calendarTasks').onclick=e=>{
+ const taskCard=e.target.closest('.calendar-task');
+ if(taskCard){
+  const task=tasks.find(t=>t.id===taskCard.dataset.id);
+  if(task)openEditDialog(task);
+ }
+};
+
 async function checkReminders(){const now=Date.now(),key=todayKey();for(const task of activeTasks().filter(t=>occursOn(t,key)&&!isDone(t,key)&&t.reminderMinutes!=null)){const at=occurrenceDate(task,key).getTime()-task.reminderMinutes*60000;if(at<=now&&at>now-60000&&!sessionStorage.getItem(`reminded:${task.id}:${key}`)){sessionStorage.setItem(`reminded:${task.id}:${key}`,'1');toast(`🔔 ${task.title}`);playReminderSound();if(Notification.permission==='granted')new Notification('Qubi emlékeztető',{body:task.title,icon:'assets/icon-192.png'})}}}
 
 function showAuth(){user=null;$('#appShell').classList.add('hidden');$('#authView').classList.remove('hidden');applyLanguage();}
@@ -132,7 +244,7 @@ $('#resetForm').onsubmit=async e=>{e.preventDefault();const token=new URLSearchP
 
 $('#taskList').onclick=e=>{
  const row=e.target.closest('.task');if(!row)return;
- const task=tasks.find(t=>t.id===row.dataset.id),key=row.dataset.date;if(!task)return;
+ const task=tasks.find(t=>t.id===row.dataset.id),key=row.dataset.date||todayKey();if(!task)return;
  if(e.target.closest('.delete-task')){pendingDelete=task;$('#confirmDialog').showModal();return}
  if(e.target.closest('.check')){
   if(task.recurrence){task.completedDates=task.completedDates||[];task.completedDates=task.completedDates.includes(key)?task.completedDates.filter(x=>x!==key):[...task.completedDates,key].sort()}
@@ -157,7 +269,8 @@ function openNewDialog(){
  $('#imagePreviewContainer').classList.add('hidden');
  $('#taskImagePreview').src='';
  if($('#taskDescription'))$('#taskDescription').value='';
- const today=todayKey();$('#taskDate').value=today;$('#taskDate').min=today;
+ $('#taskDate').value='';
+ $('#taskDate').removeAttribute('min');
  dialog.showModal();setTimeout(()=>$('#taskTitle').focus(),80);
 }
 
@@ -169,7 +282,7 @@ function openEditDialog(task){
  $('#taskTitle').value=task.title||'';
  if($('#taskDescription'))$('#taskDescription').value=task.description||'';
  const categoryRadio=$(`input[name="category"][value="${task.category}"]`);if(categoryRadio)categoryRadio.checked=true;
- const dateStr=datePart(task)||todayKey();
+ const dateStr=datePart(task)||"";
  $('#taskDate').value=dateStr;
  $('#taskDate').removeAttribute('min');
  const due=dueDate(task);
@@ -217,9 +330,10 @@ $('#recurrenceType').onchange=()=>{const type=$('#recurrenceType').value,recurri
 $('#taskForm').onsubmit=e=>{
  e.preventDefault();
  const title=$('#taskTitle').value.trim(),date=$('#taskDate').value,time=$('#taskTime').value,type=$('#recurrenceType').value;
- if(!title||!date)return;
+ if(!title)return;
  const description=$('#taskDescription')?.value.trim()||null;
- const dueAt=new Date(`${date}T${time||'12:00'}:00`).toISOString(),reminderMinutes=$('#reminderEnabled').checked&&time?10:null;
+ const dueAt=date?new Date(`${date}T${time||'12:00'}:00`).toISOString():null;
+ const reminderMinutes=$('#reminderEnabled').checked&&time?10:null;
  let recurrence=null;
  if(type!=='none'){
   recurrence={frequency:type,endDate:$('#recurrenceEnd').value||null};
@@ -227,7 +341,7 @@ $('#taskForm').onsubmit=e=>{
    recurrence.weekdays=$$('#weeklyOptions input:checked').map(x=>Number(x.value));
    if(!recurrence.weekdays.length)return toast(d('selectOneDay'));
   }
-  if(type==='monthly')recurrence.monthDay=keyToDate(date).getDate();
+  if(type==='monthly')recurrence.monthDay=date?keyToDate(date).getDate():1;
  }
  const category=new FormData(e.target).get('category');
  const updatedAt=new Date().toISOString();
@@ -257,3 +371,4 @@ addEventListener('online',()=>{setOnlineState();sync()});addEventListener('offli
 if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));
 const resetToken=new URLSearchParams(location.search).get('reset');if(resetToken)addEventListener('DOMContentLoaded',()=>$('#resetDialog').showModal());
 init();
+
