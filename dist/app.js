@@ -401,4 +401,7 @@ addEventListener('online',()=>{setOnlineState();sync()});addEventListener('offli
 if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));
 const resetToken=new URLSearchParams(location.search).get('reset');if(resetToken)addEventListener('DOMContentLoaded',()=>$('#resetDialog').showModal());
 init();
+console.log(`[Qubi Debug] window: ${window.innerWidth}x${window.innerHeight}, screen: ${screen.width}x${screen.height}, dpr: ${window.devicePixelRatio}`);
+window.addEventListener('resize', ()=>console.log(`[Qubi Resized] window: ${window.innerWidth}x${window.innerHeight}`));
+
 
