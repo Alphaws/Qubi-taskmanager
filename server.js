@@ -196,10 +196,11 @@ app.post('/api/friends/invite', requireAuth, async (req, res) => {
 
   if (!targetUser) {
     await pool.query('INSERT INTO invitations(inviter_id, email) VALUES($1, $2)', [req.user.id, email]);
-    if (mailer && process.env.SMTP_FROM) {
+    const fromAddress = process.env.MAIL_FROM || process.env.SMTP_FROM || 'Qubi <noreply@prstart.hu>';
+    if (mailer) {
       try {
         await mailer.sendMail({
-          from: process.env.SMTP_FROM,
+          from: fromAddress,
           to: email,
           subject: `${req.user.display_name} meghívott a Qubi-ba!`,
           html: `<p>Szia!</p><p><strong>${req.user.display_name}</strong> meghívott a Qubi játékos feladatkezelőbe!</p><p><a href="${process.env.APP_ORIGIN || 'https://qubi.vane.hu'}">Kattints ide a regisztrációhoz</a> és csatlakozz!</p>`
