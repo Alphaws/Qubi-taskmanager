@@ -5,9 +5,9 @@ let tasks=[],filter='all',user=null,pendingDelete=null,syncTimer=null,editingTas
 const getLang=()=>user?.language||localStorage.getItem('qubi-lang')||(navigator.language?.startsWith('uk')?'uk':navigator.language?.startsWith('en')?'en':'hu');
 
 const uiText={
- hu:{today:'Ma',calendar:'Naptár',stats:'Haladás',profile:'Profil',add:'Új küldetés',save:'Módosítások mentése',invite:'💌 Barát meghívása',logout:'Kijelentkezés',saved:'Profil mentve',inviteText:'Próbáld ki te is a Qubit, az offline is működő feladatkezelőt!',copied:'A meghívó linket kimásoltuk.',hello:'Szia',locale:'hu-HU',category_Tanulás:'Tanulás',category_Otthon:'Otthon',category_Munka:'Munka',category_Saját:'Saját'},
- en:{today:'Today',calendar:'Calendar',stats:'Progress',profile:'Profile',add:'New mission',save:'Save changes',invite:'💌 Invite a friend',logout:'Sign out',saved:'Profile saved',inviteText:'Try Qubi, the task manager that also works offline!',copied:'Invite link copied.',hello:'Hi',locale:'en-US',category_Tanulás:'Learning',category_Otthon:'Home',category_Munka:'Work',category_Saját:'Personal'},
- uk:{today:'Сьогодні',calendar:'Календар',stats:'Прогрес',profile:'Профіль',add:'Нове завдання',save:'Зберегти зміни',invite:'💌 Запросити друга',logout:'Вийти',saved:'Профіль збережено',inviteText:'Спробуйте Qubi — менеджер завдань, який працює офлайн!',copied:'Посилання для запрошення скопійовано.',hello:'Привіт',locale:'uk-UA',category_Tanulás:'Навчання',category_Otthon:'Дім',category_Munka:'Робота',category_Saját:'Особисте'}
+ hu:{today:'Ma',calendar:'Naptár',friends:'Barátok',stats:'Haladás',profile:'Profil',add:'Új küldetés',save:'Módosítások mentése',invite:'💌 Barát meghívása',logout:'Kijelentkezés',saved:'Profil mentve',inviteText:'Próbáld ki te is a Qubit, az offline is működő feladatkezelőt!',copied:'A meghívó linket kimásoltuk.',hello:'Szia',locale:'hu-HU',category_Tanulás:'Tanulás',category_Otthon:'Otthon',category_Munka:'Munka',category_Saját:'Saját'},
+ en:{today:'Today',calendar:'Calendar',friends:'Friends',stats:'Progress',profile:'Profile',add:'New mission',save:'Save changes',invite:'💌 Invite a friend',logout:'Sign out',saved:'Profile saved',inviteText:'Try Qubi, the task manager that also works offline!',copied:'Invite link copied.',hello:'Hi',locale:'en-US',category_Tanulás:'Learning',category_Otthon:'Home',category_Munka:'Work',category_Saját:'Personal'},
+ uk:{today:'Сьогодні',calendar:'Календар',friends:'Друзі',stats:'Прогрес',profile:'Профіль',add:'Нове завдання',save:'Зберегти зміни',invite:'💌 Запросити друга',logout:'Вийти',saved:'Профіль збережено',inviteText:'Спробуйте Qubi — менеджер завдань, який працює офлайн!',copied:'Посилання для запрошення скопійовано.',hello:'Привіт',locale:'uk-UA',category_Tanulás:'Навчання',category_Otthon:'Дім',category_Munka:'Робота',category_Saját:'Особисте'}
 };
 
 const staticText={
@@ -82,8 +82,8 @@ function setAvatar(element, profile){
 }
 function applyLanguage(){
  const lang=getLang(); document.documentElement.lang=lang; translateStatic();
- const labels={today:t('today'),calendar:t('calendar'),stats:t('stats'),profile:t('profile')};
- $$('.nav-item[data-view]').forEach(button=>{const small=button.querySelector('small');if(small)small.textContent=labels[button.dataset.view];else{const span=button.querySelector('span');button.replaceChildren(span,document.createTextNode(` ${labels[button.dataset.view]}`))}});
+ const labels={today:t('today'),calendar:t('calendar'),friends:t('friends'),stats:t('stats'),profile:t('profile')};
+ $$('.nav-item[data-view]').forEach(button=>{const small=button.querySelector('small');if(small)small.textContent=labels[button.dataset.view];else{const span=button.querySelector('span');const badge=button.querySelector('#friendsBadge');button.replaceChildren(span,document.createTextNode(` ${labels[button.dataset.view]} `));if(badge)button.appendChild(badge);}});
  $('#addTaskBtn').lastChild.textContent=` ${t('add')}`;$('#profileForm button').textContent=t('save');$('#inviteFriendBtn').textContent=t('invite');$('#logoutBtn').textContent=t('logout');
  if($('#uploadPhotoLabel'))$('#uploadPhotoLabel').textContent=d('attachPhoto');
 }
