@@ -518,14 +518,16 @@ async function loadMessages() {
 
 $('#chatForm').onsubmit = async (e) => {
  e.preventDefault();
- if (!activeChatFriendId) return toast('Válassz ki egy barátot a beszélgetéshez!');
+ if (!activeChatFriendId) return toast(trMsg('Válassz barátot a beszélgetéshez!'));
  const input = $('#chatInput');
  const content = input.value.trim();
  if (!content) return;
  input.value = '';
  try {
   await api(`/api/friends/messages/${activeChatFriendId}`, { method: 'POST', body: JSON.stringify({ content }) });
-  loadMessages();
+  await loadMessages();
+  const container = $('#chatMessages');
+  if (container) container.scrollTop = container.scrollHeight;
  } catch (err) { toast(err.message); }
 };
 let deferredInstallPrompt=null;
