@@ -69,3 +69,31 @@ CREATE TABLE IF NOT EXISTS reminder_deliveries (
   delivered_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY(task_id, occurrence_date)
 );
+
+CREATE TABLE IF NOT EXISTS friendships (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  requester_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  addressee_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status text NOT NULL CHECK (status IN ('pending', 'accepted', 'rejected')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(requester_id, addressee_id)
+);
+
+CREATE TABLE IF NOT EXISTS invitations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  inviter_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  sender_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  receiver_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content text NOT NULL CHECK (char_length(content) BETWEEN 1 AND 2000),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages(sender_id, receiver_id, created_at);
+

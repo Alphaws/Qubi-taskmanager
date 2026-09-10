@@ -237,7 +237,7 @@ $('#calendarTasks').onclick=e=>{
 async function checkReminders(){const now=Date.now(),key=todayKey();for(const task of activeTasks().filter(t=>occursOn(t,key)&&!isDone(t,key)&&t.reminderMinutes!=null)){const at=occurrenceDate(task,key).getTime()-task.reminderMinutes*60000;if(at<=now&&at>now-60000&&!sessionStorage.getItem(`reminded:${task.id}:${key}`)){sessionStorage.setItem(`reminded:${task.id}:${key}`,'1');toast(`🔔 ${task.title}`);playReminderSound();if(Notification.permission==='granted')new Notification('Qubi emlékeztető',{body:task.title,icon:'assets/icon-192.png'})}}}
 
 function showAuth(){user=null;$('#appShell').classList.add('hidden');$('#authView').classList.remove('hidden');applyLanguage();}
-async function showApp(){localStorage.setItem('qubi-user',JSON.stringify(user));if(user?.language)localStorage.setItem('qubi-lang',user.language);tasks=await localRead();$('#authView').classList.add('hidden');$('#appShell').classList.remove('hidden');const first=user.preferredName||user.displayName.split(' ')[0];$('#greetingName').textContent=first;$('#profileName').textContent=user.displayName;$('#profileEmail').textContent=user.email;$('#profileDisplayName').value=user.displayName;$('#profilePreferredName').value=user.preferredName||'';$('#profileLanguage').value=user.language||getLang();$('#profileSound').value=user.reminderSound||'gentle';$('#dateLabel').textContent=new Date().toLocaleDateString((uiText[getLang()]||uiText.hu).locale,{month:'long',day:'numeric',weekday:'long'}).toUpperCase();setAvatar($('#profileButton'),user);setAvatar($('#bigAvatar'),user);applyLanguage();render();setOnlineState();sync()}
+async function showApp(){localStorage.setItem('qubi-user',JSON.stringify(user));if(user?.language)localStorage.setItem('qubi-lang',user.language);tasks=await localRead();$('#authView').classList.add('hidden');$('#appShell').classList.remove('hidden');const first=user.preferredName||user.displayName.split(' ')[0];$('#greetingName').textContent=first;$('#profileName').textContent=user.displayName;$('#profileEmail').textContent=user.email;$('#profileDisplayName').value=user.displayName;$('#profilePreferredName').value=user.preferredName||'';$('#profileLanguage').value=user.language||getLang();$('#profileSound').value=user.reminderSound||'gentle';$('#dateLabel').textContent=new Date().toLocaleDateString((uiText[getLang()]||uiText.hu).locale,{month:'long',day:'numeric',weekday:'long'}).toUpperCase();setAvatar($('#profileButton'),user);setAvatar($('#bigAvatar'),user);applyLanguage();render();setOnlineState();sync();loadFriends();}
 async function init(){try{const data=await api('/api/auth/me');$('#googleLogin').classList.toggle('hidden',!data.googleEnabled);if(data.user){user=data.user;await showApp()}else{const cached=localStorage.getItem('qubi-user');if(cached){user=JSON.parse(cached);await showApp()}else showAuth()}}catch{const cached=localStorage.getItem('qubi-user');if(cached){user=JSON.parse(cached);await showApp()}else showAuth()}const params=new URLSearchParams(location.search);if(params.get('auth')){$('#authError').textContent=trMsg(params.get('auth')==='failed'?d('googleAuthFailed'):d('googleAuthNotConfigured'));history.replaceState({},'',location.pathname)}}
 
 $$('[data-auth-tab]').forEach(b=>b.onclick=()=>{$$('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===b));$('#loginForm').classList.toggle('hidden',b.dataset.authTab!=='login');$('#registerForm').classList.toggle('hidden',b.dataset.authTab!=='register');$('#authError').textContent=''});
@@ -389,10 +389,143 @@ if($('#testSoundBtn')){
   new Audio(src).play().catch(()=>toast(trMsg('A hang lejátszása nem sikerült.')));
  };
 }
-$$('[data-view]').forEach(b=>b.onclick=()=>{const v=b.dataset.view;$$('.view').forEach(x=>x.classList.remove('active'));$(`#${v}View`).classList.add('active');$$('[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===v));scrollTo({top:0,behavior:'smooth'})});$('#profileButton').onclick=()=>document.querySelector('[data-view="profile"]').click();
+$$('[data-view]').forEach(b=>b.onclick=()=>{const v=b.dataset.view;$$('.view').forEach(x=>x.classList.remove('active'));$(`#${v}View`).classList.add('active');$$('[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===v));if(v==='friends')loadFriends();scrollTo({top:0,behavior:'smooth'})});$('#profileButton').onclick=()=>document.querySelector('[data-view="profile"]').click();
 $('#logoutBtn').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST'});localStorage.removeItem('qubi-user');showAuth()}catch(error){toast(error.message)}};
 $('#profileForm').onsubmit=async e=>{e.preventDefault();try{const file=$('#soundFile').files[0];if(file){if(file.size>1024*1024)return toast(d('soundFileLimit'));const response=await fetch('/api/profile/sound',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file});if(!response.ok)throw new Error((await response.json()).error||d('soundUploadFailed'));$('#profileSound').value='custom'}const selectedLang=$('#profileLanguage').value;const data=await api('/api/profile',{method:'PUT',body:JSON.stringify({displayName:$('#profileDisplayName').value,preferredName:$('#profilePreferredName').value,language:selectedLang,reminderSound:$('#profileSound').value})});user=data.user;localStorage.setItem('qubi-user',JSON.stringify(user));localStorage.setItem('qubi-lang',selectedLang);location.reload()}catch(error){toast(error.message)}};
-$('#inviteFriendBtn').onclick=async()=>{const share={title:'Qubi',text:t('inviteText'),url:'https://qubi.vane.hu'};try{if(navigator.share)await navigator.share(share);else{await navigator.clipboard.writeText(`${share.text} ${share.url}`);toast(t('copied'))}}catch(error){if(error.name!=='AbortError')toast(d('shareFailed'))}};
+let activeChatFriendId = null, chatPollTimer = null;
+
+const openInviteModal = () => {
+ $('#inviteStatus').textContent = '';
+ $('#inviteForm').reset();
+ $('#inviteDialog').showModal();
+};
+
+if ($('#inviteFriendBtn')) $('#inviteFriendBtn').onclick = openInviteModal;
+if ($('#openInviteBtn')) $('#openInviteBtn').onclick = openInviteModal;
+if ($('#closeInviteDialog')) $('#closeInviteDialog').onclick = () => $('#inviteDialog').close();
+
+$('#inviteForm').onsubmit = async (e) => {
+ e.preventDefault();
+ const statusEl = $('#inviteStatus');
+ statusEl.textContent = trMsg('Küldés…');
+ const email = $('#inviteEmailInput').value;
+ try {
+  const data = await api('/api/friends/invite', { method: 'POST', body: JSON.stringify({ email }) });
+  statusEl.textContent = trMsg(data.message);
+  toast(trMsg(data.message));
+  setTimeout(() => { $('#inviteDialog').close(); loadFriends(); }, 1500);
+ } catch (error) {
+  statusEl.textContent = trMsg(error.message);
+ }
+};
+
+async function loadFriends() {
+ if (!user) return;
+ try {
+  const data = await api('/api/friends');
+  const friends = data.friends || [];
+  
+  const pendingRequests = friends.filter(f => f.status === 'pending' && f.addressee_id === user.id);
+  const acceptedFriends = friends.filter(f => f.status === 'accepted');
+
+  const badge = $('#friendsBadge');
+  if (badge) {
+   if (pendingRequests.length > 0) {
+    badge.textContent = pendingRequests.length;
+    badge.classList.remove('hidden');
+   } else {
+    badge.classList.add('hidden');
+   }
+  }
+
+  // Render pending requests
+  const reqContainer = $('#requestsContainer'), reqList = $('#requestsList');
+  if (pendingRequests.length > 0) {
+   reqContainer.classList.remove('hidden');
+   reqList.replaceChildren(...pendingRequests.map(r => {
+    const item = document.createElement('div');
+    item.className = 'card';
+    item.style.cssText = 'padding:12px 15px;display:flex;align-items:center;justify-content:space-between;gap:10px;';
+    item.innerHTML = `<div><strong>${escapeHtml(r.display_name)}</strong><small style="display:block;color:var(--muted);">${escapeHtml(r.email)}</small></div>
+      <div style="display:flex;gap:6px;">
+        <button class="primary-btn accept-btn" style="width:auto;padding:6px 14px;font-size:0.78rem;">Elfogadás</button>
+        <button class="secondary-btn reject-btn" style="width:auto;padding:6px 14px;font-size:0.78rem;">Elutasítás</button>
+      </div>`;
+    item.querySelector('.accept-btn').onclick = () => respondFriendship(r.friendship_id, 'accept');
+    item.querySelector('.reject-btn').onclick = () => respondFriendship(r.friendship_id, 'reject');
+    return item;
+   }));
+  } else {
+   reqContainer.classList.add('hidden');
+  }
+
+  // Render accepted friends list
+  const friendsList = $('#friendsList');
+  if (acceptedFriends.length === 0) {
+   friendsList.innerHTML = `<p style="color:var(--muted);font-size:0.85rem;">Még nincs elfogadott barátod. Hívd meg őket a fenti gombbal!</p>`;
+  } else {
+   friendsList.replaceChildren(...acceptedFriends.map(f => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = `secondary-btn ${activeChatFriendId === f.user_id ? 'active' : ''}`;
+    item.style.cssText = `width:100%;text-align:left;justify-content:flex-start;padding:10px 12px;${activeChatFriendId === f.user_id ? 'border-color:var(--purple);background:var(--lav);' : ''}`;
+    item.innerHTML = `<strong>${escapeHtml(f.display_name)}</strong>`;
+    item.onclick = () => openChat(f);
+    return item;
+   }));
+  }
+ } catch (err) { console.error('Load friends error:', err); }
+}
+
+async function respondFriendship(friendshipId, action) {
+ try {
+  await api('/api/friends/respond', { method: 'POST', body: JSON.stringify({ friendshipId, action }) });
+  toast(action === 'accept' ? 'Barátkérelem elfogadva! ✦' : 'Barátkérelem elutasítva.');
+  loadFriends();
+ } catch (err) { toast(err.message); }
+}
+
+async function openChat(friend) {
+ activeChatFriendId = friend.user_id;
+ $('#chatFriendName').textContent = `💬 ${friend.display_name}`;
+ loadFriends();
+ loadMessages();
+ clearInterval(chatPollTimer);
+ chatPollTimer = setInterval(loadMessages, 3000);
+}
+
+async function loadMessages() {
+ if (!activeChatFriendId) return;
+ try {
+  const data = await api(`/api/friends/messages/${activeChatFriendId}`);
+  const msgs = data.messages || [];
+  const container = $('#chatMessages');
+  const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
+  
+  container.replaceChildren(...msgs.map(m => {
+   const isMe = m.sender_id === user.id;
+   const div = document.createElement('div');
+   div.style.cssText = `max-width:75%;padding:9px 13px;border-radius:16px;font-size:0.88rem;align-self:${isMe ? 'flex-end' : 'flex-start'};background:${isMe ? 'var(--purple)' : '#f0edf7'};color:${isMe ? '#fff' : 'var(--ink)'};`;
+   div.textContent = m.content;
+   return div;
+  }));
+
+  if (isAtBottom) container.scrollTop = container.scrollHeight;
+ } catch (err) { console.error('Load messages error:', err); }
+}
+
+$('#chatForm').onsubmit = async (e) => {
+ e.preventDefault();
+ if (!activeChatFriendId) return toast('Válassz ki egy barátot a beszélgetéshez!');
+ const input = $('#chatInput');
+ const content = input.value.trim();
+ if (!content) return;
+ input.value = '';
+ try {
+  await api(`/api/friends/messages/${activeChatFriendId}`, { method: 'POST', body: JSON.stringify({ content }) });
+  loadMessages();
+ } catch (err) { toast(err.message); }
+};
 let deferredInstallPrompt=null;
 window.addEventListener('beforeinstallprompt',e=>{
  e.preventDefault();
