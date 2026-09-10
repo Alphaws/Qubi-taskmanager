@@ -271,8 +271,8 @@ function openNewDialog(){
  $('#taskImagePreview').src='';
  if($('#taskDescription'))$('#taskDescription').value='';
  $('#taskDate').value='';
- $('#taskDate').disabled=false;
  $('#noDateToggle').checked=false;
+ $('#dateFields').classList.remove('hidden');
  dialog.showModal();setTimeout(()=>$('#taskTitle').focus(),80);
 }
 
@@ -286,8 +286,8 @@ function openEditDialog(task){
  const categoryRadio=$(`input[name="category"][value="${task.category}"]`);if(categoryRadio)categoryRadio.checked=true;
  const dateStr=datePart(task)||"";
  $('#taskDate').value=dateStr;
- $('#taskDate').disabled=!dateStr;
  $('#noDateToggle').checked=!dateStr;
+ $('#dateFields').classList.toggle('hidden',!dateStr);
  const due=dueDate(task);
  if(due&&typeof task.dueAt==='string'&&task.dueAt.includes('T'))$('#taskTime').value=due.toLocaleTimeString('sv-SE',{hour:'2-digit',minute:'2-digit'});
  else $('#taskTime').value='';
@@ -310,13 +310,11 @@ function openEditDialog(task){
 }
 
 $('#noDateToggle').onchange=e=>{
- if(e.target.checked){
-  $('#taskDate').value='';
-  $('#taskDate').disabled=true;
- } else {
-  $('#taskDate').disabled=false;
- }
+ const isUndated=e.target.checked;
+ if(isUndated)$('#taskDate').value='';
+ $('#dateFields').classList.toggle('hidden',isUndated);
 };
+
 $('#taskDate').oninput=()=>{
  if($('#taskDate').value)$('#noDateToggle').checked=false;
 };
