@@ -412,6 +412,16 @@ function updateScreenDebug(){
  const brandW = $('.auth-card .brand-mark') ? window.getComputedStyle($('.auth-card .brand-mark')).width : 'N/A';
  el.textContent = `W: ${window.innerWidth}px | Screen: ${screen.width}px | DPR: ${window.devicePixelRatio} | Art: ${artDisp} (img: ${artImgW}) | Brand: ${brandW}`;
 }
+$$('.toggle-pw-btn').forEach(btn=>{
+ btn.onclick=()=>{
+  const input=btn.previousElementSibling;
+  if(!input) return;
+  const isPw=input.type==='password';
+  input.type=isPw?'text':'password';
+  btn.textContent=isPw?'🙈':'👁';
+  btn.setAttribute('aria-label', isPw?'Jelszó elrejtése':'Jelszó megjelenítése');
+ };
+});
 init();
 updateScreenDebug();
 window.addEventListener('resize', updateScreenDebug);
