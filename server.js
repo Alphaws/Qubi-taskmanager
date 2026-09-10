@@ -134,7 +134,25 @@ function reminderOccurs(task,key){const start=utcKey(new Date(task.due_at)),rule
 async function deliverReminders(){if(!pushEnabled)return;const now=new Date(),key=utcKey(now),result=await pool.query(`SELECT t.*,COALESCE(json_agg(ps.subscription) FILTER (WHERE ps.endpoint IS NOT NULL),'[]') subscriptions FROM tasks t LEFT JOIN push_subscriptions ps ON ps.user_id=t.user_id WHERE t.deleted=false AND t.done=false AND t.reminder_minutes IS NOT NULL GROUP BY t.id`);for(const task of result.rows){if(!reminderOccurs(task,key)||(task.completed_dates||[]).includes(key))continue;const due=new Date(task.due_at);due.setUTCFullYear(now.getUTCFullYear(),now.getUTCMonth(),now.getUTCDate());const reminderAt=due.getTime()-task.reminder_minutes*60000;if(reminderAt>Date.now()||reminderAt<Date.now()-60000)continue;const claimed=await pool.query('INSERT INTO reminder_deliveries(task_id,occurrence_date) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING task_id',[task.id,key]);if(!claimed.rowCount)continue;const payload=JSON.stringify({title:'Qubi emlékeztető',body:task.title,url:'/',tag:`qubi-${task.id}-${key}`});for(const subscription of task.subscriptions)try{await webPush.sendNotification(subscription,payload,{TTL:3600,urgency:'high'})}catch(error){if([404,410].includes(error.statusCode))await pool.query('DELETE FROM push_subscriptions WHERE endpoint=$1',[subscription.endpoint]);else console.error('Push failed:',error.message)}}}
 setInterval(()=>deliverReminders().catch(error=>console.error('Reminder worker failed:',error.message)),30000);
 app.get('/auth/google', (req, res, next) => process.env.GOOGLE_CLIENT_ID ? passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next) : res.redirect('/?auth=google-unavailable'));
-app.get('/auth/google/callback', (req, res, next) => passport.authenticate('google', { failureRedirect: '/?auth=failed' })(req, res, () => res.redirect('/')));
+app.get('/auth/google/callback', (req, res, next) => {
+  passport.authenticate('google', (err, user, info) => {
+    if (err) {
+      console.error('Google Auth Error:', err);
+      return res.redirect('/?auth=failed');
+    }
+    if (!user) {
+      console.error('Google Auth Failed Info:', info);
+      return res.redirect('/?auth=failed');
+    }
+    req.login(user, loginErr => {
+      if (loginErr) {
+        console.error('Google Login Session Error:', loginErr);
+        return res.redirect('/?auth=failed');
+      }
+      return res.redirect('/');
+    });
+  })(req, res, next);
+});
 
 app.post('/api/sync', requireAuth, async (req, res) => {
   const changes = Array.isArray(req.body.changes) ? req.body.changes.slice(0, 500) : [];
