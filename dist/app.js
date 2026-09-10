@@ -407,10 +407,11 @@ const resetToken=new URLSearchParams(location.search).get('reset');if(resetToken
 function updateScreenDebug(){
  const el = $('#screenDebugInfo');
  if(!el) return;
- const artDisp = window.getComputedStyle($('.auth-art')).display;
+ const artEl = $('.auth-art');
+ const artDisp = artEl ? window.getComputedStyle(artEl).display : 'removed';
  const artImgW = $('.auth-art img') ? window.getComputedStyle($('.auth-art img')).width : 'N/A';
  const brandW = $('.auth-card .brand-mark') ? window.getComputedStyle($('.auth-card .brand-mark')).width : 'N/A';
- el.textContent = `W: ${window.innerWidth}px | Screen: ${screen.width}px | DPR: ${window.devicePixelRatio} | Art: ${artDisp} (img: ${artImgW}) | Brand: ${brandW}`;
+ el.textContent = `W: ${window.innerWidth}px | Screen: ${screen.width}px | DPR: ${window.devicePixelRatio} | Art: ${artDisp} | Brand: ${brandW}`;
 }
 $$('.toggle-pw-btn').forEach(btn=>{
  btn.onclick=()=>{
