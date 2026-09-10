@@ -531,11 +531,27 @@ async function respondFriendship(friendshipId, action) {
 async function openChat(friend) {
  activeChatFriendId = friend.user_id;
  $('#chatFriendName').textContent = `💬 ${friend.display_name}`;
+ const layout = document.querySelector('.friends-layout');
+ if (layout) layout.classList.add('chat-active');
+ const closeBtn = $('#closeChatBtn');
+ if (closeBtn) closeBtn.style.display = window.innerWidth <= 768 ? 'inline-flex' : 'none';
  loadFriends();
  loadMessages();
  clearInterval(chatPollTimer);
  chatPollTimer = setInterval(loadMessages, 3000);
 }
+
+function closeChat() {
+ activeChatFriendId = null;
+ const layout = document.querySelector('.friends-layout');
+ if (layout) layout.classList.remove('chat-active');
+ $('#chatFriendName').textContent = trMsg('Válassz barátot a beszélgetéshez!');
+ $('#chatMessages').innerHTML = '';
+ clearInterval(chatPollTimer);
+ loadFriends();
+}
+
+if ($('#closeChatBtn')) $('#closeChatBtn').onclick = closeChat;
 
 async function loadMessages() {
  if (!activeChatFriendId) return;

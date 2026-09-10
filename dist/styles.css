@@ -23,3 +23,9 @@ textarea{width:100%;border:2px solid #eeeaf4;border-radius:15px;padding:12px;col
 .month-grid .day{min-height:55px;padding:6px 2px;background:#f9f8fc;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
 .month-grid .day.other-month{opacity:.35}
 .month-grid .day.today{background:var(--lav);border:1px solid var(--purple)}
+@media (max-width: 768px) {
+  .friends-layout { grid-template-columns: 1fr !important; gap: 14px !important; }
+  .friends-layout.chat-active #friendsListCard { display: none !important; }
+  .friends-layout:not(.chat-active) #chatBoxCard { display: none !important; }
+  #chatBoxCard { min-height: 420px; }
+}
