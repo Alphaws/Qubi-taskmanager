@@ -66,7 +66,9 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           avatar_url=COALESCE(EXCLUDED.avatar_url,users.avatar_url)
         RETURNING id,email,display_name,preferred_name,language,reminder_sound,avatar_url`,
         [email, profile.displayName || email.split('@')[0], profile.id, googleAvatar]);
-      done(null, result.rows[0]);
+      const createdUser = result.rows[0];
+      await processPendingInvitations(createdUser.id, email);
+      done(null, createdUser);
     } catch (error) { done(error); }
   }));
 }
@@ -78,6 +80,19 @@ const pushEnabled=Boolean(process.env.VAPID_PUBLIC_KEY&&process.env.VAPID_PRIVAT
 if(pushEnabled)webPush.setVapidDetails(process.env.VAPID_SUBJECT||'mailto:admin@qubi.vane.hu',process.env.VAPID_PUBLIC_KEY,process.env.VAPID_PRIVATE_KEY);
 const requireAuth = (req, res, next) => req.isAuthenticated() ? next() : res.status(401).json({ error: 'Bejelentkezés szükséges.' });
 
+async function processPendingInvitations(userId, email) {
+  try {
+    const invs = (await pool.query('SELECT inviter_id FROM invitations WHERE LOWER(email)=$1', [email.toLowerCase()])).rows;
+    for (const inv of invs) {
+      await pool.query(`
+        INSERT INTO friendships (requester_id, addressee_id, status, created_at, updated_at)
+        VALUES ($1, $2, 'accepted', NOW(), NOW())
+        ON CONFLICT (requester_id, addressee_id) DO UPDATE SET status='accepted', updated_at=NOW()
+      `, [inv.inviter_id, userId]);
+    }
+  } catch (err) { console.error('Error processing pending invitations:', err); }
+}
+
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 app.get('/api/auth/me', (req, res) => res.json({ user: req.user ? publicUser(req.user) : null, googleEnabled: Boolean(process.env.GOOGLE_CLIENT_ID) }));
 app.post('/api/auth/register', authLimiter, async (req, res) => {
@@ -88,6 +103,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
     const hash = await bcrypt.hash(password, 12);
     const user = (await pool.query('INSERT INTO users(email,display_name,preferred_name,password_hash) VALUES($1,$2,$2,$3) RETURNING id,email,display_name,preferred_name,language,reminder_sound,avatar_url', [email, displayName, hash])).rows[0];
+    await processPendingInvitations(user.id, email);
     req.login(user, error => error ? res.status(500).json({ error: 'A belépés nem sikerült.' }) : res.status(201).json({ user: publicUser(user) }));
   } catch (error) {
     if (error.code === '23505') return res.status(409).json({ error: 'Ehhez az email-címhez már tartozik fiók.' });
