@@ -196,9 +196,9 @@ app.post('/api/friends/invite', requireAuth, async (req, res) => {
 
   if (!targetUser) {
     await pool.query('INSERT INTO invitations(inviter_id, email) VALUES($1, $2)', [req.user.id, email]);
-    if (transporter && process.env.SMTP_FROM) {
+    if (mailer && process.env.SMTP_FROM) {
       try {
-        await transporter.sendMail({
+        await mailer.sendMail({
           from: process.env.SMTP_FROM,
           to: email,
           subject: `${req.user.display_name} meghívott a Qubi-ba!`,
