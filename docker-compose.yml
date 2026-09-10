@@ -15,11 +15,11 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik"
-      - "traefik.http.routers.qubi.rule=Host(`qubi.vane.hu`)"
-      - "traefik.http.routers.qubi.entrypoints=web,websecure"
-      - "traefik.http.routers.qubi.tls=true"
-      - "traefik.http.routers.qubi.tls.certresolver=myresolver"
-      - "traefik.http.services.qubi.loadbalancer.server.port=3000"
+      - "traefik.http.routers.qubi-vane.rule=Host(`qubi.vane.hu`)"
+      - "traefik.http.routers.qubi-vane.entrypoints=web,websecure"
+      - "traefik.http.routers.qubi-vane.tls=true"
+      - "traefik.http.routers.qubi-vane.tls.certresolver=myresolver"
+      - "traefik.http.services.qubi-vane.loadbalancer.server.port=3000"
     networks:
       - internal
       - traefik
