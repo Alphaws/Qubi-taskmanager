@@ -97,10 +97,11 @@ function setOnlineState(){const online=navigator.onLine;$('#offlineBanner').clas
 async function sync(){if(!user||!navigator.onLine)return;clearTimeout(syncTimer);$('#syncText').textContent=d('syncing');try{const data=await api('/api/sync',{method:'POST',body:JSON.stringify({changes:tasks})});tasks=data.tasks;await localClearUser();await localWrite(tasks);render();$('#syncText').textContent=d('synced');$('#syncDetail').textContent=`${new Date().toLocaleTimeString((uiText[getLang()]||uiText.hu).locale,{hour:'2-digit',minute:'2-digit'})}`;}catch(error){if(error.status===401)return showAuth();$('#syncText').textContent=d('savedLocal');$('#syncDetail').textContent=d('retry');}}
 function queueSync(){localWrite(tasks);clearTimeout(syncTimer);syncTimer=setTimeout(sync,700)}
 
-function dueDate(task){return task.dueAt?new Date(task.dueAt):null}
+function dueDate(task){if(!task.dueAt)return null;const d=new Date(task.dueAt);return isNaN(d.getTime())?null:d}
 function datePart(task){const d=dueDate(task);return d?d.toLocaleDateString('sv-SE'):''}
 const keyToDate=key=>new Date(`${key}T12:00:00`);
-function occursOn(task,key){const start=datePart(task);if(!start||key<start)return false;const rule=task.recurrence;if(!rule)return key===start;if(rule.endDate&&key>rule.endDate)return false;const d=keyToDate(key),s=keyToDate(start);if(rule.frequency==='daily')return true;if(rule.frequency==='weekly')return (rule.weekdays||[]).includes(d.getDay());if(rule.frequency==='monthly')return d.getDate()===Number(rule.monthDay||s.getDate());if(rule.frequency==='yearly')return d.getMonth()===s.getMonth()&&d.getDate()===s.getDate();return false}
+function occursOn(task,key){const start=datePart(task);if(!start)return true;if(key<start)return false;const rule=task.recurrence;if(!rule)return key===start;if(rule.endDate&&key>rule.endDate)return false;const d=keyToDate(key),s=keyToDate(start);if(rule.frequency==='daily')return true;if(rule.frequency==='weekly')return (rule.weekdays||[]).includes(d.getDay());if(rule.frequency==='monthly')return d.getDate()===Number(rule.monthDay||s.getDate());if(rule.frequency==='yearly')return d.getMonth()===s.getMonth()&&d.getDate()===s.getDate();return false}
+
 function occurrenceDate(task,key){const source=dueDate(task),d=keyToDate(key);if(source){d.setHours(source.getHours(),source.getMinutes(),0,0)}return d}
 function isDone(task,key){return task.recurrence?(task.completedDates||[]).includes(key):Boolean(task.done)}
 function nextOccurrence(task,fromKey=todayKey(),limit=370){for(let i=0;i<limit;i++){const d=keyToDate(fromKey);d.setDate(d.getDate()+i);const key=d.toLocaleDateString('sv-SE');if(occursOn(task,key)&&!isDone(task,key))return key}return null}
