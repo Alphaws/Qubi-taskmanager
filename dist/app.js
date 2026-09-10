@@ -1,6 +1,6 @@
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const categories={Tanulás:{icon:'📚',asset:'assets/qubi-mascot.png'},Otthon:{icon:'🏠',asset:'assets/qubi-home.png'},Munka:{icon:'💼',asset:'assets/qubi-work.png'},Saját:{icon:'🌱',asset:'assets/qubi-personal.png'}};
-let tasks=[],filter='all',user=null,pendingDelete=null,syncTimer=null;
+let tasks=[],filter='all',user=null,pendingDelete=null,syncTimer=null,editingTaskId=null,currentTaskImage=null;
 
 const getLang=()=>user?.language||localStorage.getItem('qubi-lang')||(navigator.language?.startsWith('uk')?'uk':navigator.language?.startsWith('en')?'en':'hu');
 
@@ -17,19 +17,44 @@ const staticText={
  },
  uk:{
   'A SAJÁT KÜLDETÉSEID':'ВАШІ ЗАВДАННЯ','Örülök, hogy itt vagy!':'Раді вас бачити!','Feladataid offline is veled maradnak, és internetnél automatikusan szinkronizálódnak.':'Ваші завдання доступні офлайн і автоматично синхронізуються з інтернетом.','Belépés':'Увійти','Regisztráció':'Реєстрація','Email-cím':'Електронна пошта','Jelszó':'Пароль','Elfelejtettem a jelszavam':'Забув пароль','Neved':'Ваше ім’я','Legalább 8 karakter':'Щонайменше 8 символів','Fiók létrehozása':'Створити обліковий запис','vagy':'або','Folytatás Google-fiókkal':'Продовжити з Google','Főmenü':'Головне меню','Szinkronizálás…':'Синхронізація…','A feladatok biztonságban vannak':'Ваші завдання захищені','Szia,':'Привіт,','Offline módban vagy – a változtatásokat később szinkronizáljuk.':'Ви офлайн — зміни синхронізуються пізніше.','KÖVETKEZŐ KÜLDETÉS':'НАСТУПНЕ ЗАВДАННЯ','Kezdjük el a napot!':'Почнімо день!','Qubi készen áll veled.':'Qubi готовий допомогти.','MAI TERV':'ПЛАН НА СЬОГОДНІ','Mai küldetéseid':'Завдання на сьогодні','Napi haladás':'Прогрес за день','Mind':'Усі','Tanulás':'Навчання','Otthon':'Дім','Munka':'Робота','Saját':'Особисте','QUBI-PONTOK':'БАЛИ QUBI','Csak így tovább!':'Так тримати!','Minden teljesített küldetés +20 pont.':'За кожне виконане завдання +20 балів.','TERÜLETEK':'СФЕРИ','Kategóriák':'Категорії','Következő napok':'Найближчі дні','Nincs sürgős határidőd.':'Немає термінових дедлайнів.','ÁTTEKINTÉS':'ОГЛЯД','Naptár':'Календар','EREDMÉNYEK':'РЕЗУЛЬТАТИ','kész küldetés':'виконаних завдань','Qubi-pont':'балів Qubi','aktív feladat':'активних завдань','SAJÁT TÉR':'ОСОБИСТИЙ ПРОСТІР','Profil':'Профіль','Teljes név':'Повне ім’я','Hogyan szólíthatunk?':'Як до вас звертатися?','Nyelv':'Мова','Emlékeztető hang':'Звук нагадування','Rendszerhang':'Системний звук','Qubi csilingelés':'Дзвін Qubi','Vidám jelzés':'Веселий сигнал','Saját feltöltött hang':'Завантажений звук','Saját hang feltöltése':'Завантажити власний звук','A saját hang akkor szólal meg, amikor a Qubi nyitva van. Háttérben a telefon rendszerhangja működik.':'Ваш звук працює, коли Qubi відкритий. У фоні використовується системний звук телефона.','ÚJ BEJEGYZÉS':'НОВИЙ ЗАПИС','Új küldetés':'Нове завдання','Mi legyen a küldetés?':'Яке завдання?','Kezdőnap':'Дата початку','Időpont':'Час','Ismétlődés':'Повторення','Nem ismétlődik':'Без повторення','Naponta':'Щодня','Hetente, kiválasztott napokon':'Щотижня, у вибрані дні','Minden hónap adott napján':'Щомісяця у вибраний день','Évente':'Щороку','Mely napokon?':'У які дні?','Ismétlődés vége':'Кінець повторення','Emlékeztessen 10 perccel előtte':'Нагадати за 10 хвилин','Küldetés hozzáadása':'Додати завдання','Új jelszó kérése':'Запит нового пароля','Elküldjük a biztonságos visszaállító linket.':'Надішлемо безпечне посилання для відновлення.','Link küldése':'Надіслати посилання','Új jelszó beállítása':'Встановити новий пароль','Jelszó mentése':'Зберегти пароль','Feladat törlése?':'Видалити завдання?','Az eltávolítás minden eszközön szinkronizálódik.':'Видалення синхронізується на всіх пристроях.','Mégse':'Скасувати','Törlés':'Видалити',
-  'Bejelentkezés szükséges.':'Потрібна авторизація.','Adj meg érvényes nevet, email-címet és legalább 8 karakteres jelszót.':'Вкажіть коректне ім’я, email та пароль щонайменше з 8 символів.','A belépés nem sikerült.':'Невдала спроба входу.','Ehhez az email-címhez már tartozik fiók.':'Акаунт з цією адресою вже існує.','Hibás email-cím vagy jelszó.':'Невірний email або пароль.','Ha létezik ilyen fiók, elküldtük a visszaállító linket.':'Якщо такий акаунт існує, посилання надіслано.','A jelszó legalább 8 karakter legyen.':'Пароль має бути щонайменше 8 символів.','A link érvénytelen vagy lejárt.':'Посилання недійсне або застаріло.','Érvénytelen profiladatok.':'Недійсні дані профілю.','Érvénytelen vagy üres hangfájl.':'Недійсний або порожній аудіофайл.','Váratlan szerverhiba történt.':'Сталася несподівана помилка сервера.'
+  'Bejelentkezés szükséges.':'Потрібна авторизація.','Adj meg érvényes nevet, email-címet és legalább 8 karakteres jelszót.':'Вкажіть коректне ім’я, email та пароль щонайменше з 8 символів.','A belépés nem sikerült.':'Невдала спроба входу.','Ehhez az email-címhez már tartozik fiók.':'Акаунт з цією адресою вже існує.','Hibás email-cím vagy jelszó.':'Невірний email або пароль.','Ha létezik ilyen fiók, elküldtük a visszaállító linket.':'Якщо такий акаунт існує, посилання надіслано.','A jelszó legalább 8 karakter legyen.':'Пароль має бути щонайменше 8 символів.','A link érvénytelen vagy lejárt.':'Посилання недійсне або застаріло.','Érvénytelen vagy üres hangfájl.':'Недійсний або порожній аудіофайл.','Váratlan szerverhiba történt.':'Сталася несподівана помилка сервера.'
  }
 };
 
 const dynText={
- hu:{offline:'Offline mód',offlineDetail:'A módosításokat ezen az eszközön mentjük',syncing:'Szinkronizálás…',synced:'Szinkronban',savedLocal:'Helyben mentve',retry:'Újrapróbáljuk, ha van internet',allDone:'Itt most minden kész.',addHint:'Adj hozzá egy új küldetést!',active:'aktív',upcoming:'Nincs sürgős határidőd.',allDoneHero:'Minden kész mára!',proud:'Qubi büszke rád.',next:'KÖVETKEZŐ KÜLDETÉS',great:'SZÉP MUNKA',repeatDaily:'Naponta',repeatWeekly:'Hetente',repeatMonthly:'Havonta',repeatYearly:'Évente',noTime:'Nincs időpont',today:'Ma',completed:'Szép munka! +20 Qubi-pont ✦',deleted:'Küldetés törölve',restoreTask:'Feladat visszaállítása',completeTask:'Feladat teljesítése',deleteSeries:'Teljes feladatsorozat törlése',doneStatus:'kész',noUpcoming:'Nincs közelgő feladat.',selectOneDay:'Válassz legalább egy napot!',recurringAdded:'Ismétlődő küldetés hozzáadva ↻',newAdded:'Új küldetés hozzáadva ✦',pushFailed:'A háttérértesítés engedélyezése nem sikerült.',soundFileLimit:'A hangfájl legfeljebb 1 MB lehet.',soundUploadFailed:'A hang feltöltése nem sikerült.',shareFailed:'A megosztás nem sikerült.',googleAuthFailed:'A Google-belépés nem sikerült.',googleAuthNotConfigured:'A Google-belépés még nincs konfigurálva.',passwordChanged:'A jelszavad megváltozott. Most már beléphetsz.',days:['H','K','Sze','Cs','P','Szo','V']},
- en:{offline:'Offline mode',offlineDetail:'Changes are saved on this device',syncing:'Syncing…',synced:'Synced',savedLocal:'Saved locally',retry:'We will retry when online',allDone:'Everything is done for now.',addHint:'Add a new mission!',active:'active',upcoming:'No urgent deadlines.',allDoneHero:'All done for today!',proud:'Qubi is proud of you.',next:'NEXT MISSION',great:'GREAT WORK',repeatDaily:'Daily',repeatWeekly:'Weekly',repeatMonthly:'Monthly',repeatYearly:'Yearly',noTime:'No time set',today:'Today',completed:'Great work! +20 Qubi points ✦',deleted:'Mission deleted',restoreTask:'Restore mission',completeTask:'Complete mission',deleteSeries:'Delete entire series',doneStatus:'done',noUpcoming:'No upcoming missions.',selectOneDay:'Select at least one day!',recurringAdded:'Recurring mission added ↻',newAdded:'New mission added ✦',pushFailed:'Background notifications could not be enabled.',soundFileLimit:'Sound file must be at most 1 MB.',soundUploadFailed:'Sound upload failed.',shareFailed:'Sharing failed.',googleAuthFailed:'Google login failed.',googleAuthNotConfigured:'Google login is not configured yet.',passwordChanged:'Your password has been changed. You can log in now.',days:['Mon','Tue','Wed','Thu','Fri','Sat','Sun']},
- uk:{offline:'Офлайн-режим',offlineDetail:'Зміни збережено на цьому пристрої',syncing:'Синхронізація…',synced:'Синхронізовано',savedLocal:'Збережено локально',retry:'Повторимо, коли з’явиться інтернет',allDone:'Усі завдання виконано.',addHint:'Додайте нове завдання!',active:'активних',upcoming:'Немає термінових дедлайнів.',allDoneHero:'Усе виконано на сьогодні!',proud:'Qubi пишається вами.',next:'НАСТУПНЕ ЗАВДАННЯ',great:'ЧУДОВА РОБОТА',repeatDaily:'Щодня',repeatWeekly:'Щотижня',repeatMonthly:'Щомісяця',repeatYearly:'Щороку',noTime:'Час не задано',today:'Сьогодні',completed:'Чудова робота! +20 балів Qubi ✦',deleted:'Завдання видалено',restoreTask:'Відновити завдання',completeTask:'Виконати завдання',deleteSeries:'Видалити всю серію',doneStatus:'виконано',noUpcoming:'Немає майбутніх завдань.',selectOneDay:'Виберіть хоча б один день!',recurringAdded:'Повторюване завдання додано ↻',newAdded:'Нове завдання додано ✦',pushFailed:'Не вдалося увімкнути сповіщення.',soundFileLimit:'Аудіофайл має бути не більше 1 МБ.',soundUploadFailed:'Не вдалося завантажити звук.',shareFailed:'Не вдалося поділитися.',googleAuthFailed:'Вхід через Google не вдався.',googleAuthNotConfigured:'Вхід через Google ще не налаштовано.',passwordChanged:'Ваш пароль змінено. Тепер ви можете увійти.',days:['Пн','Вт','Ср','Чт','Пт','Сб','Нд']}
+ hu:{offline:'Offline mód',offlineDetail:'A módosításokat ezen az eszközön mentjük',syncing:'Szinkronizálás…',synced:'Szinkronban',savedLocal:'Helyben mentve',retry:'Újrapróbáljuk, ha van internet',allDone:'Itt most minden kész.',addHint:'Adj hozzá egy új küldetést!',active:'aktív',upcoming:'Nincs sürgős határidőd.',allDoneHero:'Minden kész mára!',proud:'Qubi büszke rád.',next:'KÖVETKEZŐ KÜLDETÉS',great:'SZÉP MUNKA',repeatDaily:'Naponta',repeatWeekly:'Hetente',repeatMonthly:'Havonta',repeatYearly:'Évente',noTime:'Nincs időpont',today:'Ma',completed:'Szép munka! +20 Qubi-pont ✦',deleted:'Küldetés törölve',restoreTask:'Feladat visszaállítása',completeTask:'Feladat teljesítése',deleteSeries:'Teljes feladatsorozat törlése',doneStatus:'kész',noUpcoming:'Nincs közelgő feladat.',selectOneDay:'Válassz legalább egy napot!',recurringAdded:'Ismétlődő küldetés hozzáadva ↻',newAdded:'Új küldetés hozzáadva ✦',missionUpdated:'Küldetés frissítve ✦',pushFailed:'A háttérértesítés engedélyezése nem sikerült.',soundFileLimit:'A hangfájl legfeljebb 1 MB lehet.',soundUploadFailed:'A hang feltöltése nem sikerült.',shareFailed:'A megosztás nem sikerült.',googleAuthFailed:'A Google-belépés nem sikerült.',googleAuthNotConfigured:'A Google-belépés még nincs konfigurálva.',passwordChanged:'A jelszavad megváltozott. Most már beléphetsz.',editMission:'Küldetés szerkesztése',newMission:'Új küldetés',saveChanges:'Mentés',addMissionBtn:'Küldetés hozzáadása',editEntry:'BEJEGYZÉS MÓDOSÍTÁSA',newEntry:'ÚJ BEJEGYZÉS',attachPhoto:'📷 Kamera / Fotó csatolása',days:['H','K','Sze','Cs','P','Szo','V']},
+ en:{offline:'Offline mode',offlineDetail:'Changes are saved on this device',syncing:'Syncing…',synced:'Synced',savedLocal:'Saved locally',retry:'We will retry when online',allDone:'Everything is done for now.',addHint:'Add a new mission!',active:'active',upcoming:'No urgent deadlines.',allDoneHero:'All done for today!',proud:'Qubi is proud of you.',next:'NEXT MISSION',great:'GREAT WORK',repeatDaily:'Daily',repeatWeekly:'Weekly',repeatMonthly:'Monthly',repeatYearly:'Yearly',noTime:'No time set',today:'Today',completed:'Great work! +20 Qubi points ✦',deleted:'Mission deleted',restoreTask:'Restore mission',completeTask:'Complete mission',deleteSeries:'Delete entire series',doneStatus:'done',noUpcoming:'No upcoming missions.',selectOneDay:'Select at least one day!',recurringAdded:'Recurring mission added ↻',newAdded:'New mission added ✦',missionUpdated:'Mission updated ✦',pushFailed:'Background notifications could not be enabled.',soundFileLimit:'Sound file must be at most 1 MB.',soundUploadFailed:'Sound upload failed.',shareFailed:'Sharing failed.',googleAuthFailed:'Google login failed.',googleAuthNotConfigured:'Google login is not configured yet.',passwordChanged:'Your password has been changed. You can log in now.',editMission:'Edit mission',newMission:'New mission',saveChanges:'Save changes',addMissionBtn:'Add mission',editEntry:'EDIT ENTRY',newEntry:'NEW ENTRY',attachPhoto:'📷 Attach photo / camera image',days:['Mon','Tue','Wed','Thu','Fri','Sat','Sun']},
+ uk:{offline:'Офлайн-режим',offlineDetail:'Зміни збережено на цьому пристрої',syncing:'Синхронізація…',synced:'Синхронізовано',savedLocal:'Збережено локально',retry:'Повторимо, коли з’явиться інтернет',allDone:'Усі завдання виконано.',addHint:'Додайте нове завдання!',active:'активних',upcoming:'Немає термінових дедлайнів.',allDoneHero:'Усе виконано на сьогодні!',proud:'Qubi пишається вами.',next:'НАСТУПНЕ ЗАВДАННЯ',great:'ЧУДОВА РОБОТА',repeatDaily:'Щодня',repeatWeekly:'Щотижня',repeatMonthly:'Щомісяця',repeatYearly:'Щороку',noTime:'Час не задано',today:'Сьогодні',completed:'Чудова робота! +20 балів Qubi ✦',deleted:'Завдання видалено',restoreTask:'Відновити завдання',completeTask:'Виконати завдання',deleteSeries:'Видалити всю серію',doneStatus:'виконано',noUpcoming:'Немає майбутніх завдань.',selectOneDay:'Виберіть хоча б один день!',recurringAdded:'Повторюване завдання додано ↻',newAdded:'Нове завдання додано ✦',missionUpdated:'Завдання оновлено ✦',pushFailed:'Не вдалося увімкнути сповіщення.',soundFileLimit:'Аудіофайл має бути не більше 1 МБ.',soundUploadFailed:'Не вдалося завантажити звук.',shareFailed:'Не вдалося поділитися.',googleAuthFailed:'Вхід через Google не вдався.',googleAuthNotConfigured:'Вхід через Google ще не налаштовано.',passwordChanged:'Ваш пароль змінено. Тепер ви можете увійти.',editMission:'Редагувати завдання',newMission:'Нове завдання',saveChanges:'Зберегти зміни',addMissionBtn:'Додати завдання',editEntry:'РЕДАГУВАННЯ ЗАПИСУ',newEntry:'НОВИЙ ЗАПИС',attachPhoto:'📷 Додати фото з камери',days:['Пн','Вт','Ср','Чт','Пт','Сб','Нд']}
 };
 
 const t=key=>(uiText[getLang()]||uiText.hu)[key]||key;
 const d=key=>(dynText[getLang()]||dynText.hu)[key]||key;
 const trMsg=msg=>{if(!msg)return '';const lang=getLang();if(lang==='hu')return msg;return staticText[lang]?.[msg]||dynText[lang]?.[msg]||msg;};
+
+function compressImage(file){
+ return new Promise((resolve,reject)=>{
+  const reader=new FileReader();
+  reader.onload=e=>{
+   const img=new Image();
+   img.onload=()=>{
+    const canvas=document.createElement('canvas');
+    let w=img.width,h=img.height,max=800;
+    if(w>max||h>max){
+     if(w>h){h=Math.round(h*(max/w));w=max;}
+     else{w=Math.round(w*(max/h));h=max;}
+    }
+    canvas.width=w; canvas.height=h;
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(img,0,0,w,h);
+    resolve(canvas.toDataURL('image/jpeg',0.7));
+   };
+   img.onerror=reject;
+   img.src=e.target.result;
+  };
+  reader.onerror=reject;
+  reader.readAsDataURL(file);
+ });
+}
 
 function translateStatic(){
  const lang=getLang(); document.documentElement.lang=lang;
@@ -56,6 +81,7 @@ function applyLanguage(){
  const labels={today:t('today'),calendar:t('calendar'),stats:t('stats'),profile:t('profile')};
  $$('.nav-item[data-view]').forEach(button=>{const small=button.querySelector('small');if(small)small.textContent=labels[button.dataset.view];else{const span=button.querySelector('span');button.replaceChildren(span,document.createTextNode(` ${labels[button.dataset.view]}`))}});
  $('#addTaskBtn').lastChild.textContent=` ${t('add')}`;$('#profileForm button').textContent=t('save');$('#inviteFriendBtn').textContent=t('invite');$('#logoutBtn').textContent=t('logout');
+ if($('#uploadPhotoLabel'))$('#uploadPhotoLabel').textContent=d('attachPhoto');
 }
 
 function openDb(){return new Promise((resolve,reject)=>{const request=indexedDB.open('qubi-offline',2);request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains('tasks'))db.createObjectStore('tasks',{keyPath:'key'});};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)})}
@@ -81,9 +107,10 @@ function nextOccurrence(task,fromKey=todayKey(),limit=370){for(let i=0;i<limit;i
 function recurrenceLabel(task){const r=task.recurrence;if(!r)return '';if(r.frequency==='daily')return d('repeatDaily');if(r.frequency==='weekly')return d('repeatWeekly');if(r.frequency==='monthly')return `${d('repeatMonthly')} ${r.monthDay}.`;return d('repeatYearly')}
 function formatDue(task,key=datePart(task)){if(!key)return d('noTime');const date=occurrenceDate(task,key),day=key===todayKey()?d('today'):date.toLocaleDateString((uiText[getLang()]||uiText.hu).locale,{month:'short',day:'numeric'});const source=dueDate(task),hasTime=source&&task.dueAt.includes('T');return `${day}${hasTime?`, ${date.toLocaleTimeString((uiText[getLang()]||uiText.hu).locale,{hour:'2-digit',minute:'2-digit'})}`:''}`}
 function activeTasks(){return tasks.filter(t=>!t.deleted)}
+
 function render(){
  const all=activeTasks(),key=todayKey(),today=all.filter(t=>occursOn(t,key)),shown=(filter==='all'?today:today.filter(t=>t.category===filter)).sort((a,b)=>occurrenceDate(a,key)-occurrenceDate(b,key));const done=today.filter(t=>isDone(t,key)).length,pct=today.length?done/today.length*100:0;
- $('#taskList').innerHTML=shown.length?shown.map(t=>{const complete=isDone(t,key);return `<article class="task ${complete?'done':''}" data-id="${t.id}" data-date="${key}"><button class="check" aria-label="${complete?d('restoreTask'):d('completeTask')}"></button><button class="task-body" aria-label="${escapeHtml(t.title)}"><span class="task-title">${escapeHtml(t.title)}</span><span class="task-meta"><b class="cat-${Object.keys(categories).indexOf(t.category)}">${categories[t.category].icon} ${t(`category_${t.category}`)}</b><span>◷ ${formatDue(t,key)}</span>${t.reminderMinutes!=null?'<span>🔔</span>':''}${t.recurrence?`<span class="repeat-badge">↻ ${recurrenceLabel(t)}</span>`:''}</span></button><button class="delete-task" aria-label="${d('deleteSeries')}">×</button></article>`}).join(''):`<div class="empty-state"><span>✨</span><strong>${d('allDone')}</strong><small>${d('addHint')}</small></div>`;
+ $('#taskList').innerHTML=shown.length?shown.map(t=>{const complete=isDone(t,key);return `<article class="task ${complete?'done':''}" data-id="${t.id}" data-date="${key}"><button class="check" aria-label="${complete?d('restoreTask'):d('completeTask')}"></button><button class="task-body" aria-label="${escapeHtml(t.title)}"><span class="task-title">${escapeHtml(t.title)}</span><span class="task-meta"><b class="cat-${Object.keys(categories).indexOf(t.category)}">${categories[t.category].icon} ${t(`category_${t.category}`)}</b><span>◷ ${formatDue(t,key)}</span>${t.reminderMinutes!=null?'<span>🔔</span>':''}${t.recurrence?`<span class="repeat-badge">↻ ${recurrenceLabel(t)}</span>`:''}</span></button>${t.image?`<img class="task-thumb" src="${t.image}" alt="Fotó">`:''}<button class="delete-task" aria-label="${d('deleteSeries')}">×</button></article>`}).join(''):`<div class="empty-state"><span>✨</span><strong>${d('allDone')}</strong><small>${d('addHint')}</small></div>`;
  $('#progressLabel').textContent=`${done} / ${today.length} ${d('doneStatus')}`;$('#progressBar').style.width=`${pct}%`;const completionCount=all.reduce((sum,t)=>sum+(t.recurrence?(t.completedDates||[]).length:(t.done?1:0)),0),score=completionCount*20;$('#scoreValue').textContent=score;$('#pointStat').textContent=score;$('#doneStat').textContent=completionCount;$('#activeStat').textContent=all.filter(t=>nextOccurrence(t)).length;
  $('#categoryGrid').innerHTML=Object.entries(categories).map(([c,v])=>`<button class="category" data-category="${c}"><span class="category-icon">${v.icon}</span><strong>${t(`category_${c}`)}</strong><small>${all.filter(t=>t.category===c&&nextOccurrence(t)).length} ${d('active')}</small></button>`).join('');
  const candidates=all.map(task=>({task,key:nextOccurrence(task)})).filter(x=>x.key).sort((a,b)=>occurrenceDate(a.task,a.key)-occurrenceDate(b.task,b.key)),next=candidates[0];if(next){$('#heroTitle').textContent=next.task.title;$('#heroMessage').textContent=`${formatDue(next.task,next.key)} • ${t(`category_${next.task.category}`)}`;$('#heroBadge').textContent=d('next');$('#mascot').src=categories[next.task.category].asset;$('#mascot').alt=`Qubi ${next.task.category.toLowerCase()} ruhában`;}else{$('#heroTitle').textContent=d('allDoneHero');$('#heroMessage').textContent=d('proud');$('#heroBadge').textContent=d('great');$('#mascot').src='assets/qubi-personal.png'}
@@ -102,13 +129,123 @@ $('#loginForm').onsubmit=e=>{e.preventDefault();authSubmit(e.target,'/api/auth/l
 $('#forgotPasswordBtn').onclick=()=>{$('#forgotStatus').textContent='';$('#forgotDialog').showModal()};$('#closeForgotDialog').onclick=()=>$('#forgotDialog').close();
 $('#forgotForm').onsubmit=async e=>{e.preventDefault();const button=e.target.querySelector('button[type=submit]');button.disabled=true;try{const data=await api('/api/auth/forgot-password',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});$('#forgotStatus').textContent=trMsg(data.message)}catch(error){$('#forgotStatus').textContent=trMsg(error.message)}finally{button.disabled=false}};
 $('#resetForm').onsubmit=async e=>{e.preventDefault();const token=new URLSearchParams(location.search).get('reset'),password=new FormData(e.target).get('password');try{await api('/api/auth/reset-password',{method:'POST',body:JSON.stringify({token,password})});$('#resetStatus').textContent=d('passwordChanged');setTimeout(()=>{history.replaceState({},'',location.pathname);$('#resetDialog').close()},1600)}catch(error){$('#resetStatus').textContent=trMsg(error.message)}};
-$('#taskList').onclick=e=>{const row=e.target.closest('.task');if(!row)return;const task=tasks.find(t=>t.id===row.dataset.id),key=row.dataset.date;if(e.target.closest('.delete-task')){pendingDelete=task;$('#confirmDialog').showModal();return}if(e.target.closest('.check')){if(task.recurrence){task.completedDates=task.completedDates||[];task.completedDates=task.completedDates.includes(key)?task.completedDates.filter(x=>x!==key):[...task.completedDates,key].sort()}else task.done=!task.done;task.updatedAt=new Date().toISOString();if(isDone(task,key))toast(d('completed'));queueSync();render()}};
+
+$('#taskList').onclick=e=>{
+ const row=e.target.closest('.task');if(!row)return;
+ const task=tasks.find(t=>t.id===row.dataset.id),key=row.dataset.date;if(!task)return;
+ if(e.target.closest('.delete-task')){pendingDelete=task;$('#confirmDialog').showModal();return}
+ if(e.target.closest('.check')){
+  if(task.recurrence){task.completedDates=task.completedDates||[];task.completedDates=task.completedDates.includes(key)?task.completedDates.filter(x=>x!==key):[...task.completedDates,key].sort()}
+  else task.done=!task.done;
+  task.updatedAt=new Date().toISOString();if(isDone(task,key))toast(d('completed'));queueSync();render();return;
+ }
+ openEditDialog(task);
+};
+
 $('#confirmDelete').onclick=()=>{if(!pendingDelete)return;pendingDelete.deleted=true;pendingDelete.updatedAt=new Date().toISOString();pendingDelete=null;queueSync();render();toast(d('deleted'))};
 $$('.filter').forEach(b=>b.onclick=()=>{$$('.filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');filter=b.dataset.filter;render()});$('#categoryGrid').onclick=e=>{const b=e.target.closest('[data-category]');if(!b)return;filter=b.dataset.category;$$('.filter').forEach(x=>x.classList.toggle('active',x.dataset.filter===filter));render()};
-const dialog=$('#taskDialog');function openDialog(){const today=todayKey();$('#taskDate').value=today;$('#taskDate').min=today;dialog.showModal();setTimeout(()=>$('#taskTitle').focus(),80)}$('#addTaskBtn').onclick=openDialog;$('#mobileAdd').onclick=openDialog;
+
+const dialog=$('#taskDialog');
+function openNewDialog(){
+ editingTaskId=null; currentTaskImage=null;
+ $('#taskForm').reset();
+ $('#dialogEyebrow').textContent=d('newEntry');
+ $('#dialogTitle').textContent=d('newMission');
+ $('#taskSubmitBtn').textContent=d('addMissionBtn');
+ $('#weeklyOptions').classList.add('hidden');
+ $('#recurrenceEndLabel').classList.add('hidden');
+ $('#imagePreviewContainer').classList.add('hidden');
+ $('#taskImagePreview').src='';
+ const today=todayKey();$('#taskDate').value=today;$('#taskDate').min=today;
+ dialog.showModal();setTimeout(()=>$('#taskTitle').focus(),80);
+}
+
+function openEditDialog(task){
+ editingTaskId=task.id; currentTaskImage=task.image||null;
+ $('#dialogEyebrow').textContent=d('editEntry');
+ $('#dialogTitle').textContent=d('editMission');
+ $('#taskSubmitBtn').textContent=d('saveChanges');
+ $('#taskTitle').value=task.title||'';
+ const categoryRadio=$(`input[name="category"][value="${task.category}"]`);if(categoryRadio)categoryRadio.checked=true;
+ const dateStr=datePart(task)||todayKey();
+ $('#taskDate').value=dateStr;
+ $('#taskDate').removeAttribute('min');
+ const due=dueDate(task);
+ if(due&&task.dueAt.includes('T'))$('#taskTime').value=due.toLocaleTimeString('sv-SE',{hour:'2-digit',minute:'2-digit'});
+ else $('#taskTime').value='';
+ const rec=task.recurrence;
+ $('#recurrenceType').value=rec?.frequency||'none';
+ const recurring=rec&&rec.frequency!=='none';
+ $('#weeklyOptions').classList.toggle('hidden',rec?.frequency!=='weekly');
+ $('#recurrenceEndLabel').classList.toggle('hidden',!recurring);
+ $('#recurrenceEnd').value=rec?.endDate||'';
+ $$('#weeklyOptions input').forEach(input=>{input.checked=(rec?.weekdays||[]).includes(Number(input.value))});
+ $('#reminderEnabled').checked=task.reminderMinutes!=null;
+ if(currentTaskImage){
+  $('#taskImagePreview').src=currentTaskImage;
+  $('#imagePreviewContainer').classList.remove('hidden');
+ } else {
+  $('#imagePreviewContainer').classList.add('hidden');
+  $('#taskImagePreview').src='';
+ }
+ dialog.showModal();setTimeout(()=>$('#taskTitle').focus(),80);
+}
+
+$('#addTaskBtn').onclick=openNewDialog;$('#mobileAdd').onclick=openNewDialog;
 dialog.querySelector('.icon-btn').onclick=e=>{e.preventDefault();dialog.close()};
+
+$('#taskImage').onchange=async e=>{
+ const file=e.target.files[0];if(!file)return;
+ try{
+  currentTaskImage=await compressImage(file);
+  $('#taskImagePreview').src=currentTaskImage;
+  $('#imagePreviewContainer').classList.remove('hidden');
+ }catch(err){toast(trMsg('A kép feldolgozása nem sikerült.'))}
+};
+
+$('#removeImageBtn').onclick=()=>{
+ currentTaskImage=null;
+ $('#taskImagePreview').src='';
+ $('#imagePreviewContainer').classList.add('hidden');
+ $('#taskImage').value='';
+};
+
 $('#recurrenceType').onchange=()=>{const type=$('#recurrenceType').value,recurring=type!=='none';$('#weeklyOptions').classList.toggle('hidden',type!=='weekly');$('#recurrenceEndLabel').classList.toggle('hidden',!recurring);if(type==='weekly'&&!$('#weeklyOptions input:checked')){const day=keyToDate($('#taskDate').value||todayKey()).getDay();$(`#weeklyOptions input[value="${day}"]`).checked=true}};
-$('#taskForm').onsubmit=e=>{e.preventDefault();const title=$('#taskTitle').value.trim(),date=$('#taskDate').value,time=$('#taskTime').value,type=$('#recurrenceType').value;if(!title||!date)return;const dueAt=new Date(`${date}T${time||'12:00'}:00`).toISOString(),reminderMinutes=$('#reminderEnabled').checked&&time?10:null;let recurrence=null;if(type!=='none'){recurrence={frequency:type,endDate:$('#recurrenceEnd').value||null};if(type==='weekly'){recurrence.weekdays=$$('#weeklyOptions input:checked').map(x=>Number(x.value));if(!recurrence.weekdays.length)return toast(d('selectOneDay'))}if(type==='monthly')recurrence.monthDay=keyToDate(date).getDate()}tasks.push({id:crypto.randomUUID(),title,category:new FormData(e.target).get('category'),dueAt,reminderAt:null,reminderMinutes,recurrence,completedDates:[],done:false,deleted:false,updatedAt:new Date().toISOString()});e.target.reset();$('#weeklyOptions').classList.add('hidden');$('#recurrenceEndLabel').classList.add('hidden');dialog.close();queueSync();render();toast(recurrence?d('recurringAdded'):d('newAdded'));if(reminderMinutes!=null)enablePush().catch(()=>toast(d('pushFailed')))};
+
+$('#taskForm').onsubmit=e=>{
+ e.preventDefault();
+ const title=$('#taskTitle').value.trim(),date=$('#taskDate').value,time=$('#taskTime').value,type=$('#recurrenceType').value;
+ if(!title||!date)return;
+ const dueAt=new Date(`${date}T${time||'12:00'}:00`).toISOString(),reminderMinutes=$('#reminderEnabled').checked&&time?10:null;
+ let recurrence=null;
+ if(type!=='none'){
+  recurrence={frequency:type,endDate:$('#recurrenceEnd').value||null};
+  if(type==='weekly'){
+   recurrence.weekdays=$$('#weeklyOptions input:checked').map(x=>Number(x.value));
+   if(!recurrence.weekdays.length)return toast(d('selectOneDay'));
+  }
+  if(type==='monthly')recurrence.monthDay=keyToDate(date).getDate();
+ }
+ const category=new FormData(e.target).get('category');
+ const updatedAt=new Date().toISOString();
+ if(editingTaskId){
+  const existing=tasks.find(t=>t.id===editingTaskId);
+  if(existing){
+   existing.title=title; existing.category=category; existing.dueAt=dueAt; existing.reminderMinutes=reminderMinutes;
+   existing.recurrence=recurrence; existing.image=currentTaskImage; existing.updatedAt=updatedAt;
+  }
+  toast(d('missionUpdated'));
+ } else {
+  tasks.push({id:crypto.randomUUID(),title,category,dueAt,reminderAt:null,reminderMinutes,recurrence,completedDates:[],done:false,deleted:false,image:currentTaskImage,updatedAt});
+  toast(recurrence?d('recurringAdded'):d('newAdded'));
+ }
+ e.target.reset();
+ $('#weeklyOptions').classList.add('hidden');$('#recurrenceEndLabel').classList.add('hidden');$('#imagePreviewContainer').classList.add('hidden');
+ editingTaskId=null; currentTaskImage=null;
+ dialog.close();queueSync();render();
+ if(reminderMinutes!=null)enablePush().catch(()=>toast(d('pushFailed')));
+};
+
 $$('[data-view]').forEach(b=>b.onclick=()=>{const v=b.dataset.view;$$('.view').forEach(x=>x.classList.remove('active'));$(`#${v}View`).classList.add('active');$$('[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===v));scrollTo({top:0,behavior:'smooth'})});$('#profileButton').onclick=()=>document.querySelector('[data-view="profile"]').click();
 $('#logoutBtn').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST'});localStorage.removeItem('qubi-user');showAuth()}catch(error){toast(error.message)}};
 $('#profileForm').onsubmit=async e=>{e.preventDefault();try{const file=$('#soundFile').files[0];if(file){if(file.size>1024*1024)return toast(d('soundFileLimit'));const response=await fetch('/api/profile/sound',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file});if(!response.ok)throw new Error((await response.json()).error||d('soundUploadFailed'));$('#profileSound').value='custom'}const selectedLang=$('#profileLanguage').value;const data=await api('/api/profile',{method:'PUT',body:JSON.stringify({displayName:$('#profileDisplayName').value,preferredName:$('#profilePreferredName').value,language:selectedLang,reminderSound:$('#profileSound').value})});user=data.user;localStorage.setItem('qubi-user',JSON.stringify(user));localStorage.setItem('qubi-lang',selectedLang);location.reload()}catch(error){toast(error.message)}};

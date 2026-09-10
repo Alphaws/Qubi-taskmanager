@@ -149,17 +149,18 @@ app.post('/api/sync', requireAuth, async (req, res) => {
       if (!Number.isFinite(changedAt.getTime()) || Math.abs(Date.now() - changedAt.getTime()) > 1000 * 60 * 60 * 24 * 365) continue;
       const recurrence = task.recurrence && ['daily','weekly','monthly','yearly'].includes(task.recurrence.frequency) ? task.recurrence : null;
       const completedDates = Array.isArray(task.completedDates) ? task.completedDates.filter(value => /^\d{4}-\d{2}-\d{2}$/.test(value)).slice(-1000) : [];
-      await client.query(`INSERT INTO tasks(id,user_id,title,category,due_at,reminder_at,reminder_minutes,recurrence,completed_dates,done,deleted,client_updated_at)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+      const image = typeof task.image === 'string' && task.image.startsWith('data:image/') && task.image.length < 750000 ? task.image : null;
+      await client.query(`INSERT INTO tasks(id,user_id,title,category,due_at,reminder_at,reminder_minutes,recurrence,completed_dates,done,deleted,image,client_updated_at)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
         ON CONFLICT(id) DO UPDATE SET title=EXCLUDED.title,category=EXCLUDED.category,due_at=EXCLUDED.due_at,
           reminder_at=EXCLUDED.reminder_at,reminder_minutes=EXCLUDED.reminder_minutes,recurrence=EXCLUDED.recurrence,
-          completed_dates=EXCLUDED.completed_dates,done=EXCLUDED.done,deleted=EXCLUDED.deleted,
+          completed_dates=EXCLUDED.completed_dates,done=EXCLUDED.done,deleted=EXCLUDED.deleted,image=EXCLUDED.image,
           client_updated_at=EXCLUDED.client_updated_at,server_updated_at=now()
         WHERE tasks.user_id=EXCLUDED.user_id AND tasks.client_updated_at <= EXCLUDED.client_updated_at`,
-        [task.id, req.user.id, title, task.category, task.dueAt || null, task.reminderAt || null, Number.isInteger(task.reminderMinutes) ? task.reminderMinutes : null, recurrence, JSON.stringify(completedDates), Boolean(task.done), Boolean(task.deleted), changedAt]);
+        [task.id, req.user.id, title, task.category, task.dueAt || null, task.reminderAt || null, Number.isInteger(task.reminderMinutes) ? task.reminderMinutes : null, recurrence, JSON.stringify(completedDates), Boolean(task.done), Boolean(task.deleted), image, changedAt]);
     }
     await client.query('COMMIT');
-    const rows = (await pool.query(`SELECT id,title,category,due_at AS "dueAt",reminder_at AS "reminderAt",reminder_minutes AS "reminderMinutes",recurrence,completed_dates AS "completedDates",done,deleted,
+    const rows = (await pool.query(`SELECT id,title,category,due_at AS "dueAt",reminder_at AS "reminderAt",reminder_minutes AS "reminderMinutes",recurrence,completed_dates AS "completedDates",done,deleted,image,
       client_updated_at AS "updatedAt" FROM tasks WHERE user_id=$1 ORDER BY server_updated_at`, [req.user.id])).rows;
     res.json({ tasks: rows, syncedAt: new Date().toISOString() });
   } catch (error) { await client.query('ROLLBACK'); throw error; }

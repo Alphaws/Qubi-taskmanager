@@ -44,6 +44,7 @@ ALTER TABLE users ADD CONSTRAINT users_language_check CHECK (language IN ('hu','
 ALTER TABLE users ADD COLUMN IF NOT EXISTS reminder_sound text NOT NULL DEFAULT 'gentle';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS sound_mime text;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS sound_data bytea;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS image text;
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
