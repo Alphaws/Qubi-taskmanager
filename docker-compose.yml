@@ -16,7 +16,7 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=traefik"
       - "traefik.http.routers.qubi.rule=Host(`qubi.vane.hu`)"
-      - "traefik.http.routers.qubi.entrypoints=websecure"
+      - "traefik.http.routers.qubi.entrypoints=web,websecure"
       - "traefik.http.routers.qubi.tls=true"
       - "traefik.http.routers.qubi.tls.certresolver=myresolver"
       - "traefik.http.services.qubi.loadbalancer.server.port=3000"
