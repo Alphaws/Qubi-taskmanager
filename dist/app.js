@@ -412,15 +412,6 @@ if($('#installBtn')){
 addEventListener('online',()=>{setOnlineState();sync()});addEventListener('offline',setOnlineState);setInterval(checkReminders,30000);$('#dateLabel').textContent=new Date().toLocaleDateString((uiText[getLang()]||uiText.hu).locale,{month:'long',day:'numeric',weekday:'long'}).toUpperCase();
 if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));
 const resetToken=new URLSearchParams(location.search).get('reset');if(resetToken)addEventListener('DOMContentLoaded',()=>$('#resetDialog').showModal());
-function updateScreenDebug(){
- const el = $('#screenDebugInfo');
- if(!el) return;
- const artEl = $('.auth-art');
- const artDisp = artEl ? window.getComputedStyle(artEl).display : 'removed';
- const artImgW = $('.auth-art img') ? window.getComputedStyle($('.auth-art img')).width : 'N/A';
- const brandW = $('.auth-card .brand-mark') ? window.getComputedStyle($('.auth-card .brand-mark')).width : 'N/A';
- el.textContent = `W: ${window.innerWidth}px | Screen: ${screen.width}px | DPR: ${window.devicePixelRatio} | Art: ${artDisp} | Brand: ${brandW}`;
-}
 $$('.toggle-pw-btn').forEach(btn=>{
  btn.onclick=()=>{
   const input=btn.previousElementSibling;
@@ -432,7 +423,6 @@ $$('.toggle-pw-btn').forEach(btn=>{
  };
 });
 init();
-updateScreenDebug();
-window.addEventListener('resize', updateScreenDebug);
+
 
 
