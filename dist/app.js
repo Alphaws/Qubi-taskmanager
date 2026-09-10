@@ -238,8 +238,40 @@ $('#calendarTasks').onclick=e=>{
 
 async function checkReminders(){const now=Date.now(),key=todayKey();for(const task of activeTasks().filter(t=>occursOn(t,key)&&!isDone(t,key)&&t.reminderMinutes!=null)){const at=occurrenceDate(task,key).getTime()-task.reminderMinutes*60000;if(at<=now&&at>now-60000&&!sessionStorage.getItem(`reminded:${task.id}:${key}`)){sessionStorage.setItem(`reminded:${task.id}:${key}`,'1');toast(`🔔 ${task.title}`);playReminderSound();if(Notification.permission==='granted')new Notification('Qubi emlékeztető',{body:task.title,icon:'assets/icon-192.png'})}}}
 
-function showAuth(){user=null;$('#appShell').classList.add('hidden');$('#authView').classList.remove('hidden');applyLanguage();}
-async function showApp(){localStorage.setItem('qubi-user',JSON.stringify(user));if(user?.language)localStorage.setItem('qubi-lang',user.language);tasks=await localRead();$('#authView').classList.add('hidden');$('#appShell').classList.remove('hidden');const first=user.preferredName||user.displayName.split(' ')[0];$('#greetingName').textContent=first;$('#profileName').textContent=user.displayName;$('#profileEmail').textContent=user.email;$('#profileDisplayName').value=user.displayName;$('#profilePreferredName').value=user.preferredName||'';$('#profileLanguage').value=user.language||getLang();$('#profileSound').value=user.reminderSound||'gentle';$('#dateLabel').textContent=new Date().toLocaleDateString((uiText[getLang()]||uiText.hu).locale,{month:'long',day:'numeric',weekday:'long'}).toUpperCase();setAvatar($('#profileButton'),user);setAvatar($('#bigAvatar'),user);applyLanguage();render();setOnlineState();sync();loadFriends();}
+let socket = null;
+
+function initWs() {
+ if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
+ const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+ socket = new WebSocket(`${protocol}//${location.host}`);
+ socket.onmessage = (event) => {
+  try {
+   const data = JSON.parse(event.data);
+   if (data.type === 'chat_message') {
+    if (activeChatFriendId === data.message.sender_id) {
+     loadMessages();
+    } else {
+     toast(`💬 ${data.senderName}: ${data.message.content.length > 30 ? data.message.content.slice(0, 30) + '…' : data.message.content}`);
+     playReminderSound();
+    }
+    loadFriends();
+   } else if (data.type === 'friend_request') {
+    toast(`💌 ${data.from} barátkérelmet küldött!`);
+    playReminderSound();
+    loadFriends();
+   } else if (data.type === 'friend_response') {
+    if (data.status === 'accepted') toast(`✨ ${data.from} elfogadta a barátkérelmed!`);
+    loadFriends();
+   }
+  } catch (e) { console.error('WS message parse error:', e); }
+ };
+ socket.onclose = () => {
+  setTimeout(() => { if (user) initWs(); }, 5000);
+ };
+}
+
+function showAuth(){user=null;if(socket){socket.close();socket=null;} $('#appShell').classList.add('hidden');$('#authView').classList.remove('hidden');applyLanguage();}
+async function showApp(){localStorage.setItem('qubi-user',JSON.stringify(user));if(user?.language)localStorage.setItem('qubi-lang',user.language);tasks=await localRead();$('#authView').classList.add('hidden');$('#appShell').classList.remove('hidden');const first=user.preferredName||user.displayName.split(' ')[0];$('#greetingName').textContent=first;$('#profileName').textContent=user.displayName;$('#profileEmail').textContent=user.email;$('#profileDisplayName').value=user.displayName;$('#profilePreferredName').value=user.preferredName||'';$('#profileLanguage').value=user.language||getLang();$('#profileSound').value=user.reminderSound||'gentle';$('#dateLabel').textContent=new Date().toLocaleDateString((uiText[getLang()]||uiText.hu).locale,{month:'long',day:'numeric',weekday:'long'}).toUpperCase();setAvatar($('#profileButton'),user);setAvatar($('#bigAvatar'),user);applyLanguage();render();setOnlineState();sync();loadFriends();initWs();}
 async function init(){try{const data=await api('/api/auth/me');$('#googleLogin').classList.toggle('hidden',!data.googleEnabled);if(data.user){user=data.user;await showApp()}else{const cached=localStorage.getItem('qubi-user');if(cached){user=JSON.parse(cached);await showApp()}else showAuth()}}catch{const cached=localStorage.getItem('qubi-user');if(cached){user=JSON.parse(cached);await showApp()}else showAuth()}const params=new URLSearchParams(location.search);if(params.get('auth')){$('#authError').textContent=trMsg(params.get('auth')==='failed'?d('googleAuthFailed'):d('googleAuthNotConfigured'));history.replaceState({},'',location.pathname)}}
 
 $$('[data-auth-tab]').forEach(b=>b.onclick=()=>{$$('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===b));$('#loginForm').classList.toggle('hidden',b.dataset.authTab!=='login');$('#registerForm').classList.toggle('hidden',b.dataset.authTab!=='register');$('#authError').textContent=''});

@@ -14,6 +14,9 @@ import nodemailer from 'nodemailer';
 import webPush from 'web-push';
 import pg from 'pg';
 
+import http from 'node:http';
+import { WebSocketServer, WebSocket } from 'ws';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
 const required = ['DATABASE_URL', 'SESSION_SECRET'];
@@ -23,12 +26,15 @@ const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 await pool.query(await import('node:fs/promises').then(fs => fs.readFile(path.join(__dirname, 'schema.sql'), 'utf8')));
 
 const app = express();
+const server = http.createServer(app);
+const wss = new WebSocketServer({ noServer: true });
+
 app.set('trust proxy', 1);
 app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(express.json({ limit: '256kb' }));
 
 const PgStore = connectPgSimple(session);
-app.use(session({
+const sessionMiddleware = session({
   store: new PgStore({ pool, createTableIfMissing: true }),
   name: 'qubi.sid',
   secret: process.env.SESSION_SECRET,
@@ -36,9 +42,52 @@ app.use(session({
   saveUninitialized: false,
   rolling: true,
   cookie: { httpOnly: true, secure: isProd, sameSite: 'lax', maxAge: 1000 * 60 * 60 * 24 * 365 }
-}));
+});
+app.use(sessionMiddleware);
 app.use(passport.initialize());
 app.use(passport.session());
+
+// WebSocket connections map: userId -> Set<WebSocket>
+const clientsMap = new Map();
+
+server.on('upgrade', (request, socket, head) => {
+  sessionMiddleware(request, {}, () => {
+    const passportUserId = request.session?.passport?.user;
+    if (!passportUserId) {
+      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      ws.userId = passportUserId;
+      wss.emit('connection', ws, request);
+    });
+  });
+});
+
+wss.on('connection', (ws) => {
+  const userId = ws.userId;
+  if (!clientsMap.has(userId)) clientsMap.set(userId, new Set());
+  clientsMap.get(userId).add(ws);
+
+  ws.on('close', () => {
+    const userSockets = clientsMap.get(userId);
+    if (userSockets) {
+      userSockets.delete(ws);
+      if (userSockets.size === 0) clientsMap.delete(userId);
+    }
+  });
+});
+
+function notifyUserWs(userId, data) {
+  const sockets = clientsMap.get(userId);
+  if (sockets) {
+    const payload = JSON.stringify(data);
+    for (const ws of sockets) {
+      if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+    }
+  }
+}
 
 passport.serializeUser((user, done) => done(null, user.id));
 passport.deserializeUser(async (id, done) => {
@@ -236,6 +285,7 @@ app.post('/api/friends/invite', requireAuth, async (req, res) => {
     await pool.query('INSERT INTO friendships(requester_id, addressee_id, status) VALUES($1, $2, $3)', [req.user.id, targetUser.id, 'pending']);
   }
 
+  notifyUserWs(targetUser.id, { type: 'friend_request', from: req.user.display_name });
   res.json({ status: 'requested', message: `Barátkérelmet küldtünk ${targetUser.display_name} felhasználónak!` });
 });
 
@@ -259,6 +309,11 @@ app.post('/api/friends/respond', requireAuth, async (req, res) => {
   const status = action === 'accept' ? 'accepted' : 'rejected';
   const result = await pool.query('UPDATE friendships SET status=$1, updated_at=now() WHERE id=$2 AND addressee_id=$3 RETURNING *', [status, friendshipId, req.user.id]);
   if (result.rowCount === 0) return res.status(404).json({ error: 'Kérelem nem található.' });
+
+  const row = result.rows[0];
+  const otherUserId = row.requester_id === req.user.id ? row.addressee_id : row.requester_id;
+  notifyUserWs(otherUserId, { type: 'friend_response', status, from: req.user.display_name });
+
   res.json({ success: true, status });
 });
 
@@ -289,6 +344,8 @@ app.post('/api/friends/messages/:friendId', requireAuth, async (req, res) => {
     INSERT INTO messages(sender_id, receiver_id, content) VALUES($1, $2, $3) RETURNING id, sender_id, receiver_id, content, created_at
   `, [req.user.id, friendId, content])).rows[0];
 
+  notifyUserWs(friendId, { type: 'chat_message', message: msg, senderName: req.user.display_name });
+
   if (pushEnabled) {
     const subs = (await pool.query('SELECT subscription FROM push_subscriptions WHERE user_id=$1', [friendId])).rows;
     const payload = JSON.stringify({
@@ -309,4 +366,4 @@ app.post('/api/friends/messages/:friendId', requireAuth, async (req, res) => {
 app.use(express.static(path.join(__dirname, 'dist'), { etag: true, maxAge: isProd ? '1h' : 0 }));
 app.get('*splat', (_req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
 app.use((error, _req, res, _next) => { console.error(error); res.status(500).json({ error: 'Váratlan szerverhiba történt.' }); });
-app.listen(Number(process.env.PORT || 3000), () => console.log(`Qubi listening on ${process.env.PORT || 3000}`));
+server.listen(Number(process.env.PORT || 3000), () => console.log(`Qubi listening on ${process.env.PORT || 3000}`));
