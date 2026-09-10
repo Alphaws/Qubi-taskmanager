@@ -381,6 +381,14 @@ $('#taskForm').onsubmit=e=>{
  if(reminderMinutes!=null)enablePush().catch(()=>toast(d('pushFailed')));
 };
 
+if($('#testSoundBtn')){
+ $('#testSoundBtn').onclick=()=>{
+  const val=$('#profileSound').value;
+  if(val==='default') return toast(trMsg('Rendszerhang kiválasztva.'));
+  const src=val==='custom'?`/api/profile/sound?v=${Date.now()}`:`/assets/sound-${val}.mp3`;
+  new Audio(src).play().catch(()=>toast(trMsg('A hang lejátszása nem sikerült.')));
+ };
+}
 $$('[data-view]').forEach(b=>b.onclick=()=>{const v=b.dataset.view;$$('.view').forEach(x=>x.classList.remove('active'));$(`#${v}View`).classList.add('active');$$('[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===v));scrollTo({top:0,behavior:'smooth'})});$('#profileButton').onclick=()=>document.querySelector('[data-view="profile"]').click();
 $('#logoutBtn').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST'});localStorage.removeItem('qubi-user');showAuth()}catch(error){toast(error.message)}};
 $('#profileForm').onsubmit=async e=>{e.preventDefault();try{const file=$('#soundFile').files[0];if(file){if(file.size>1024*1024)return toast(d('soundFileLimit'));const response=await fetch('/api/profile/sound',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file});if(!response.ok)throw new Error((await response.json()).error||d('soundUploadFailed'));$('#profileSound').value='custom'}const selectedLang=$('#profileLanguage').value;const data=await api('/api/profile',{method:'PUT',body:JSON.stringify({displayName:$('#profileDisplayName').value,preferredName:$('#profilePreferredName').value,language:selectedLang,reminderSound:$('#profileSound').value})});user=data.user;localStorage.setItem('qubi-user',JSON.stringify(user));localStorage.setItem('qubi-lang',selectedLang);location.reload()}catch(error){toast(error.message)}};
