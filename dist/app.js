@@ -271,7 +271,8 @@ function openNewDialog(){
  $('#taskImagePreview').src='';
  if($('#taskDescription'))$('#taskDescription').value='';
  $('#taskDate').value='';
- $('#taskDate').removeAttribute('min');
+ $('#taskDate').disabled=false;
+ $('#noDateToggle').checked=false;
  dialog.showModal();setTimeout(()=>$('#taskTitle').focus(),80);
 }
 
@@ -285,7 +286,8 @@ function openEditDialog(task){
  const categoryRadio=$(`input[name="category"][value="${task.category}"]`);if(categoryRadio)categoryRadio.checked=true;
  const dateStr=datePart(task)||"";
  $('#taskDate').value=dateStr;
- $('#taskDate').removeAttribute('min');
+ $('#taskDate').disabled=!dateStr;
+ $('#noDateToggle').checked=!dateStr;
  const due=dueDate(task);
  if(due&&typeof task.dueAt==='string'&&task.dueAt.includes('T'))$('#taskTime').value=due.toLocaleTimeString('sv-SE',{hour:'2-digit',minute:'2-digit'});
  else $('#taskTime').value='';
@@ -306,6 +308,18 @@ function openEditDialog(task){
  }
  dialog.showModal();setTimeout(()=>$('#taskTitle').focus(),80);
 }
+
+$('#noDateToggle').onchange=e=>{
+ if(e.target.checked){
+  $('#taskDate').value='';
+  $('#taskDate').disabled=true;
+ } else {
+  $('#taskDate').disabled=false;
+ }
+};
+$('#taskDate').oninput=()=>{
+ if($('#taskDate').value)$('#noDateToggle').checked=false;
+};
 
 $('#addTaskBtn').onclick=openNewDialog;$('#mobileAdd').onclick=openNewDialog;
 dialog.querySelector('.icon-btn').onclick=e=>{e.preventDefault();dialog.close()};
@@ -330,10 +344,11 @@ $('#recurrenceType').onchange=()=>{const type=$('#recurrenceType').value,recurri
 
 $('#taskForm').onsubmit=e=>{
  e.preventDefault();
- const title=$('#taskTitle').value.trim(),date=$('#taskDate').value,time=$('#taskTime').value,type=$('#recurrenceType').value;
+ const title=$('#taskTitle').value.trim(),isUndated=$('#noDateToggle').checked,date=isUndated?'':$('#taskDate').value,time=$('#taskTime').value,type=$('#recurrenceType').value;
  if(!title)return;
  const description=$('#taskDescription')?.value.trim()||null;
  const dueAt=date?new Date(`${date}T${time||'12:00'}:00`).toISOString():null;
+
  const reminderMinutes=$('#reminderEnabled').checked&&time?10:null;
  let recurrence=null;
  if(type!=='none'){
