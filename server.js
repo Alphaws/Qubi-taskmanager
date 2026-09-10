@@ -242,13 +242,15 @@ app.post('/api/friends/invite', requireAuth, async (req, res) => {
 app.get('/api/friends', requireAuth, async (req, res) => {
   const friends = (await pool.query(`
     SELECT f.id AS friendship_id, f.status, f.requester_id, f.addressee_id,
-      u.id AS user_id, u.display_name, u.email, u.avatar_url
+      u.id AS user_id, u.display_name, u.email, u.avatar_url,
+      (SELECT COUNT(*)::int FROM messages m WHERE m.sender_id = u.id AND m.receiver_id = $1 AND m.read_at IS NULL) AS unread_count
     FROM friendships f
     JOIN users u ON (CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END) = u.id
     WHERE f.requester_id = $1 OR f.addressee_id = $1
     ORDER BY f.updated_at DESC
   `, [req.user.id])).rows;
-  res.json({ friends });
+  const unreadTotal = (await pool.query(`SELECT COUNT(*)::int FROM messages WHERE receiver_id=$1 AND read_at IS NULL`, [req.user.id])).rows[0].count;
+  res.json({ friends, unreadTotal });
 });
 
 app.post('/api/friends/respond', requireAuth, async (req, res) => {
@@ -262,6 +264,7 @@ app.post('/api/friends/respond', requireAuth, async (req, res) => {
 
 app.get('/api/friends/messages/:friendId', requireAuth, async (req, res) => {
   const friendId = req.params.friendId;
+  await pool.query('UPDATE messages SET read_at=now() WHERE sender_id=$1 AND receiver_id=$2 AND read_at IS NULL', [friendId, req.user.id]);
   const messages = (await pool.query(`
     SELECT m.id, m.sender_id, m.receiver_id, m.content, m.created_at
     FROM messages m
@@ -285,6 +288,20 @@ app.post('/api/friends/messages/:friendId', requireAuth, async (req, res) => {
   const msg = (await pool.query(`
     INSERT INTO messages(sender_id, receiver_id, content) VALUES($1, $2, $3) RETURNING id, sender_id, receiver_id, content, created_at
   `, [req.user.id, friendId, content])).rows[0];
+
+  if (pushEnabled) {
+    const subs = (await pool.query('SELECT subscription FROM push_subscriptions WHERE user_id=$1', [friendId])).rows;
+    const payload = JSON.stringify({
+      title: `${req.user.display_name} üzenetet küldött`,
+      body: content.length > 50 ? content.slice(0, 50) + '…' : content,
+      url: '/?view=friends',
+      tag: `chat-${req.user.id}`
+    });
+    for (const s of subs) {
+      try { await webPush.sendNotification(s.subscription, payload, { TTL: 3600 }); }
+      catch (e) { console.error('Chat push notify error:', e.message); }
+    }
+  }
 
   res.json({ message: msg });
 });

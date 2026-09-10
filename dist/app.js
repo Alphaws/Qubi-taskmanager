@@ -421,19 +421,23 @@ $('#inviteForm').onsubmit = async (e) => {
  }
 };
 
+let backgroundFriendPoll = null;
+
 async function loadFriends() {
  if (!user) return;
  try {
   const data = await api('/api/friends');
   const friends = data.friends || [];
+  const unreadTotal = Number(data.unreadTotal || 0);
   
   const pendingRequests = friends.filter(f => f.status === 'pending' && f.addressee_id === user.id);
   const acceptedFriends = friends.filter(f => f.status === 'accepted');
 
+  const totalNotifications = pendingRequests.length + unreadTotal;
   const badge = $('#friendsBadge');
   if (badge) {
-   if (pendingRequests.length > 0) {
-    badge.textContent = pendingRequests.length;
+   if (totalNotifications > 0) {
+    badge.textContent = totalNotifications;
     badge.classList.remove('hidden');
    } else {
     badge.classList.add('hidden');
@@ -470,11 +474,16 @@ async function loadFriends() {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = `secondary-btn ${activeChatFriendId === f.user_id ? 'active' : ''}`;
-    item.style.cssText = `width:100%;text-align:left;justify-content:flex-start;padding:10px 12px;${activeChatFriendId === f.user_id ? 'border-color:var(--purple);background:var(--lav);' : ''}`;
-    item.innerHTML = `<strong>${escapeHtml(f.display_name)}</strong>`;
+    item.style.cssText = `width:100%;text-align:left;justify-content:space-between;align-items:center;padding:10px 12px;${activeChatFriendId === f.user_id ? 'border-color:var(--purple);background:var(--lav);' : ''}`;
+    const unreadBadge = Number(f.unread_count || 0) > 0 ? `<span style="background:var(--purple);color:#fff;border-radius:99px;padding:2px 8px;font-size:0.75rem;font-weight:800;">${f.unread_count} új</span>` : '';
+    item.innerHTML = `<strong>${escapeHtml(f.display_name)}</strong>${unreadBadge}`;
     item.onclick = () => openChat(f);
     return item;
    }));
+  }
+  
+  if (!backgroundFriendPoll) {
+   backgroundFriendPoll = setInterval(() => loadFriends(), 10000);
   }
  } catch (err) { console.error('Load friends error:', err); }
 }

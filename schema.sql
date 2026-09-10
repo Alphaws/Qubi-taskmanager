@@ -92,8 +92,10 @@ CREATE TABLE IF NOT EXISTS messages (
   sender_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   receiver_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   content text NOT NULL CHECK (char_length(content) BETWEEN 1 AND 2000),
+  read_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at timestamptz;
 CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages(sender_id, receiver_id, created_at);
 
