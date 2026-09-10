@@ -505,10 +505,11 @@ async function loadFriends() {
    friendsList.replaceChildren(...acceptedFriends.map(f => {
     const item = document.createElement('button');
     item.type = 'button';
-    item.className = `secondary-btn ${activeChatFriendId === f.user_id ? 'active' : ''}`;
-    item.style.cssText = `width:100%;text-align:left;justify-content:space-between;align-items:center;padding:10px 12px;${activeChatFriendId === f.user_id ? 'border-color:var(--purple);background:var(--lav);' : ''}`;
-    const unreadBadge = Number(f.unread_count || 0) > 0 ? `<span style="background:var(--purple);color:#fff;border-radius:99px;padding:2px 8px;font-size:0.75rem;font-weight:800;">${f.unread_count} új</span>` : '';
-    item.innerHTML = `<strong>${escapeHtml(f.display_name)}</strong>${unreadBadge}`;
+    item.className = `friend-item-btn ${activeChatFriendId === f.user_id ? 'active' : ''}`;
+    const initial = escapeHtml((f.display_name || '?')[0].toUpperCase());
+    const avatarHtml = f.avatar_url ? `<div class="friend-item-avatar"><img src="${escapeHtml(f.avatar_url)}" alt=""></div>` : `<div class="friend-item-avatar">${initial}</div>`;
+    const unreadBadge = Number(f.unread_count || 0) > 0 ? `<span class="unread-badge">${f.unread_count}</span>` : '';
+    item.innerHTML = `${avatarHtml}<div style="flex:1;min-width:0;"><strong style="display:block;font-size:0.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(f.display_name)}</strong></div>${unreadBadge}`;
     item.onclick = () => openChat(f);
     return item;
    }));
@@ -530,7 +531,14 @@ async function respondFriendship(friendshipId, action) {
 
 async function openChat(friend) {
  activeChatFriendId = friend.user_id;
- $('#chatFriendName').textContent = `💬 ${friend.display_name}`;
+ const initial = escapeHtml((friend.display_name || '?')[0].toUpperCase());
+ const avatarHtml = friend.avatar_url ? `<span class="chat-mini-avatar" style="width:32px;height:32px;"><img src="${escapeHtml(friend.avatar_url)}" alt=""></span>` : `<span class="chat-mini-avatar" style="width:32px;height:32px;">${initial}</span>`;
+ $('#chatFriendName').replaceChildren();
+ const wrap = document.createElement('div');
+ wrap.style.cssText = 'display:flex;align-items:center;gap:10px;';
+ wrap.innerHTML = `${avatarHtml}<span>${escapeHtml(friend.display_name)}</span>`;
+ $('#chatFriendName').appendChild(wrap);
+
  const layout = document.querySelector('.friends-layout');
  if (layout) layout.classList.add('chat-active');
  const closeBtn = $('#closeChatBtn');
@@ -563,10 +571,22 @@ async function loadMessages() {
   
   container.replaceChildren(...msgs.map(m => {
    const isMe = m.sender_id === user.id;
-   const div = document.createElement('div');
-   div.style.cssText = `max-width:75%;padding:9px 13px;border-radius:16px;font-size:0.88rem;align-self:${isMe ? 'flex-end' : 'flex-start'};background:${isMe ? 'var(--purple)' : '#f0edf7'};color:${isMe ? '#fff' : 'var(--ink)'};`;
-   div.textContent = m.content;
-   return div;
+   const wrap = document.createElement('div');
+   wrap.className = `chat-bubble-wrap ${isMe ? 'me' : 'them'}`;
+   
+   const bubble = document.createElement('div');
+   bubble.className = 'chat-bubble';
+   bubble.textContent = m.content;
+   
+   const dateObj = new Date(m.created_at);
+   const timeStr = isNaN(dateObj) ? '' : dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+   const timeSpan = document.createElement('span');
+   timeSpan.className = 'chat-time';
+   timeSpan.textContent = timeStr;
+
+   wrap.appendChild(bubble);
+   wrap.appendChild(timeSpan);
+   return wrap;
   }));
 
   if (isAtBottom) container.scrollTop = container.scrollHeight;
