@@ -1,0 +1,52 @@
+services:
+  app:
+    build: .
+    container_name: qubi-app
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik"
+      - "traefik.http.routers.qubi.rule=Host(`qubi.vane.hu`)"
+      - "traefik.http.routers.qubi.entrypoints=websecure"
+      - "traefik.http.routers.qubi.tls=true"
+      - "traefik.http.routers.qubi.tls.certresolver=myresolver"
+      - "traefik.http.services.qubi.loadbalancer.server.port=3000"
+    networks:
+      - internal
+      - traefik
+
+  db:
+    image: postgres:17-alpine
+    container_name: qubi-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: qubi
+      POSTGRES_USER: qubi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - qubi-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qubi -d qubi"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+volumes:
+  qubi-postgres:
+
+networks:
+  internal:
+    internal: true
+  traefik:
+    external: true
