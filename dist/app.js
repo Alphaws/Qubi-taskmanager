@@ -381,6 +381,22 @@ $$('[data-view]').forEach(b=>b.onclick=()=>{const v=b.dataset.view;$$('.view').f
 $('#logoutBtn').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST'});localStorage.removeItem('qubi-user');showAuth()}catch(error){toast(error.message)}};
 $('#profileForm').onsubmit=async e=>{e.preventDefault();try{const file=$('#soundFile').files[0];if(file){if(file.size>1024*1024)return toast(d('soundFileLimit'));const response=await fetch('/api/profile/sound',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file});if(!response.ok)throw new Error((await response.json()).error||d('soundUploadFailed'));$('#profileSound').value='custom'}const selectedLang=$('#profileLanguage').value;const data=await api('/api/profile',{method:'PUT',body:JSON.stringify({displayName:$('#profileDisplayName').value,preferredName:$('#profilePreferredName').value,language:selectedLang,reminderSound:$('#profileSound').value})});user=data.user;localStorage.setItem('qubi-user',JSON.stringify(user));localStorage.setItem('qubi-lang',selectedLang);location.reload()}catch(error){toast(error.message)}};
 $('#inviteFriendBtn').onclick=async()=>{const share={title:'Qubi',text:t('inviteText'),url:'https://qubi.vane.hu'};try{if(navigator.share)await navigator.share(share);else{await navigator.clipboard.writeText(`${share.text} ${share.url}`);toast(t('copied'))}}catch(error){if(error.name!=='AbortError')toast(d('shareFailed'))}};
+let deferredInstallPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+ e.preventDefault();
+ deferredInstallPrompt=e;
+ const btn=$('#installBtn');
+ if(btn)btn.classList.remove('hidden');
+});
+if($('#installBtn')){
+ $('#installBtn').onclick=async()=>{
+  if(!deferredInstallPrompt)return;
+  deferredInstallPrompt.prompt();
+  const choice=await deferredInstallPrompt.userChoice;
+  if(choice.outcome==='accepted')$('#installBtn').classList.add('hidden');
+  deferredInstallPrompt=null;
+ };
+}
 addEventListener('online',()=>{setOnlineState();sync()});addEventListener('offline',setOnlineState);setInterval(checkReminders,30000);$('#dateLabel').textContent=new Date().toLocaleDateString((uiText[getLang()]||uiText.hu).locale,{month:'long',day:'numeric',weekday:'long'}).toUpperCase();
 if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));
 const resetToken=new URLSearchParams(location.search).get('reset');if(resetToken)addEventListener('DOMContentLoaded',()=>$('#resetDialog').showModal());
