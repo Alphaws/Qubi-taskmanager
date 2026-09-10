@@ -400,8 +400,16 @@ if($('#installBtn')){
 addEventListener('online',()=>{setOnlineState();sync()});addEventListener('offline',setOnlineState);setInterval(checkReminders,30000);$('#dateLabel').textContent=new Date().toLocaleDateString((uiText[getLang()]||uiText.hu).locale,{month:'long',day:'numeric',weekday:'long'}).toUpperCase();
 if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));
 const resetToken=new URLSearchParams(location.search).get('reset');if(resetToken)addEventListener('DOMContentLoaded',()=>$('#resetDialog').showModal());
+function updateScreenDebug(){
+ const el = $('#screenDebugInfo');
+ if(!el) return;
+ const artDisp = window.getComputedStyle($('.auth-art')).display;
+ const artImgW = $('.auth-art img') ? window.getComputedStyle($('.auth-art img')).width : 'N/A';
+ const brandW = $('.auth-card .brand-mark') ? window.getComputedStyle($('.auth-card .brand-mark')).width : 'N/A';
+ el.textContent = `W: ${window.innerWidth}px | Screen: ${screen.width}px | DPR: ${window.devicePixelRatio} | Art: ${artDisp} (img: ${artImgW}) | Brand: ${brandW}`;
+}
 init();
-console.log(`[Qubi Debug] window: ${window.innerWidth}x${window.innerHeight}, screen: ${screen.width}x${screen.height}, dpr: ${window.devicePixelRatio}`);
-window.addEventListener('resize', ()=>console.log(`[Qubi Resized] window: ${window.innerWidth}x${window.innerHeight}`));
+updateScreenDebug();
+window.addEventListener('resize', updateScreenDebug);
 
 
