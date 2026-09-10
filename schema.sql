@@ -45,6 +45,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS reminder_sound text NOT NULL DEFAULT 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS sound_mime text;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS sound_data bytea;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS image text;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS description text;
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
