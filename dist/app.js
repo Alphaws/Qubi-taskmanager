@@ -59,7 +59,11 @@ function compressImage(file){
 function translateStatic(){
  const lang=getLang(); document.documentElement.lang=lang;
  const dict=staticText[lang]||{};
- const walk=node=>{if(node.nodeType===Node.TEXT_NODE){const raw=node.nodeValue,trimmed=raw.trim();if(dict[trimmed])node.nodeValue=raw.replace(trimmed,dict[trimmed]);return}node.childNodes?.forEach(walk)};
+ const walk=node=>{
+  if(node.nodeType===Node.ELEMENT_NODE && (node.id==='screenDebugInfo' || node.hasAttribute('data-no-translate'))) return;
+  if(node.nodeType===Node.TEXT_NODE){const raw=node.nodeValue,trimmed=raw.trim();if(dict[trimmed])node.nodeValue=raw.replace(trimmed,dict[trimmed]);return}
+  node.childNodes?.forEach(walk)
+ };
  walk(document.body);
  $$('input,textarea').forEach(el=>{const key=el.getAttribute('placeholder');if(key&&dict[key])el.setAttribute('placeholder',dict[key])});
  $$('[aria-label]').forEach(el=>{const key=el.getAttribute('aria-label');if(dict[key])el.setAttribute('aria-label',dict[key])});
