@@ -97,7 +97,22 @@ async function localClearUser(){const db=await openDb(),all=await new Promise(r=
 
 async function api(url,options={}){const response=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});if(response.status===204)return null;const data=await response.json().catch(()=>({}));if(!response.ok)throw Object.assign(new Error(data.error||'A kérés nem sikerült.'),{status:response.status});return data}
 function decodeKey(value){const padding='='.repeat((4-value.length%4)%4),raw=atob((value+padding).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...raw].map(char=>char.charCodeAt(0)))}
-async function enablePush(){if(!('serviceWorker'in navigator)||!('PushManager'in window))return false;const permission=await Notification.permission;if(permission!=='granted')return false;const registration=await navigator.serviceWorker.ready,key=await api('/api/push/key');if(!key.publicKey)return false;let subscription=await registration.pushManager.getSubscription();if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:decodeKey(key.publicKey)});await api('/api/push/subscribe',{method:'POST',body:JSON.stringify(subscription)});return true}
+async function enablePush(){
+ if(!('serviceWorker'in navigator)||!('PushManager'in window))return false;
+ let permission=Notification.permission;
+ if(permission==='default'){
+  permission=await Notification.requestPermission();
+ }
+ if(permission!=='granted')return false;
+ try{
+  const registration=await navigator.serviceWorker.ready,key=await api('/api/push/key');
+  if(!key.publicKey)return false;
+  let subscription=await registration.pushManager.getSubscription();
+  if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:decodeKey(key.publicKey)});
+  await api('/api/push/subscribe',{method:'POST',body:JSON.stringify(subscription)});
+  return true;
+ }catch(e){console.error('Enable push failed:',e);return false;}
+}
 function playReminderSound(){const sound=user?.reminderSound||'gentle';if(sound==='default')return;const src=sound==='custom'?`/api/profile/sound?v=${Date.now()}`:`/assets/sound-${sound}.mp3`;new Audio(src).play().catch(()=>{})}
 function setOnlineState(){const online=navigator.onLine;$('#offlineBanner').classList.toggle('hidden',online);$('#syncDot').classList.toggle('offline',!online);if(!online){$('#syncText').textContent=d('offline');$('#syncDetail').textContent=d('offlineDetail')}}
 async function sync(){if(!user||!navigator.onLine)return;clearTimeout(syncTimer);$('#syncText').textContent=d('syncing');try{const data=await api('/api/sync',{method:'POST',body:JSON.stringify({changes:tasks})});tasks=data.tasks;await localClearUser();await localWrite(tasks);render();$('#syncText').textContent=d('synced');$('#syncDetail').textContent=`${new Date().toLocaleTimeString((uiText[getLang()]||uiText.hu).locale,{hour:'2-digit',minute:'2-digit'})}`;}catch(error){if(error.status===401)return showAuth();$('#syncText').textContent=d('savedLocal');$('#syncDetail').textContent=d('retry');}}
@@ -423,7 +438,7 @@ if($('#testSoundBtn')){
   new Audio(src).play().catch(()=>toast(trMsg('A hang lejátszása nem sikerült.')));
  };
 }
-$$('[data-view]').forEach(b=>b.onclick=()=>{const v=b.dataset.view;$$('.view').forEach(x=>x.classList.remove('active'));$(`#${v}View`).classList.add('active');$$('[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===v));if(v==='friends')loadFriends();scrollTo({top:0,behavior:'smooth'})});$('#profileButton').onclick=()=>document.querySelector('[data-view="profile"]').click();
+$$('[data-view]').forEach(b=>b.onclick=()=>{const v=b.dataset.view;$$('.view').forEach(x=>x.classList.remove('active'));$(`#${v}View`).classList.add('active');$$('[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===v));if(v==='friends'){loadFriends();enablePush().catch(()=>{});}scrollTo({top:0,behavior:'smooth'})});$('#profileButton').onclick=()=>document.querySelector('[data-view="profile"]').click();
 $('#logoutBtn').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST'});localStorage.removeItem('qubi-user');showAuth()}catch(error){toast(error.message)}};
 $('#profileForm').onsubmit=async e=>{e.preventDefault();try{const file=$('#soundFile').files[0];if(file){if(file.size>1024*1024)return toast(d('soundFileLimit'));const response=await fetch('/api/profile/sound',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file});if(!response.ok)throw new Error((await response.json()).error||d('soundUploadFailed'));$('#profileSound').value='custom'}const selectedLang=$('#profileLanguage').value;const data=await api('/api/profile',{method:'PUT',body:JSON.stringify({displayName:$('#profileDisplayName').value,preferredName:$('#profilePreferredName').value,language:selectedLang,reminderSound:$('#profileSound').value})});user=data.user;localStorage.setItem('qubi-user',JSON.stringify(user));localStorage.setItem('qubi-lang',selectedLang);location.reload()}catch(error){toast(error.message)}};
 let activeChatFriendId = null, chatPollTimer = null;
