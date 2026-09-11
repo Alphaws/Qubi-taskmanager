@@ -113,7 +113,14 @@ async function enablePush(){
   return true;
  }catch(e){console.error('Enable push failed:',e);return false;}
 }
-function playReminderSound(){const sound=user?.reminderSound||'gentle';if(sound==='default')return;const src=sound==='custom'?`/api/profile/sound?v=${Date.now()}`:`/assets/sound-${sound}.mp3`;new Audio(src).play().catch(()=>{})}
+function playReminderSound(){
+ const sound=user?.reminderSound||'pop';
+ if(sound==='default')return;
+ const wavSounds=['pop','chime','joy','whistle'];
+ const ext=wavSounds.includes(sound)?'wav':'mp3';
+ const src=sound==='custom'?`/api/profile/sound?v=${Date.now()}`:`/assets/sound-${sound}.${ext}`;
+ new Audio(src).play().catch(()=>{});
+}
 function setOnlineState(){const online=navigator.onLine;$('#offlineBanner').classList.toggle('hidden',online);$('#syncDot').classList.toggle('offline',!online);if(!online){$('#syncText').textContent=d('offline');$('#syncDetail').textContent=d('offlineDetail')}}
 async function sync(){if(!user||!navigator.onLine)return;clearTimeout(syncTimer);$('#syncText').textContent=d('syncing');try{const data=await api('/api/sync',{method:'POST',body:JSON.stringify({changes:tasks})});tasks=data.tasks;await localClearUser();await localWrite(tasks);render();$('#syncText').textContent=d('synced');$('#syncDetail').textContent=`${new Date().toLocaleTimeString((uiText[getLang()]||uiText.hu).locale,{hour:'2-digit',minute:'2-digit'})}`;}catch(error){if(error.status===401)return showAuth();$('#syncText').textContent=d('savedLocal');$('#syncDetail').textContent=d('retry');}}
 function queueSync(){localWrite(tasks);clearTimeout(syncTimer);syncTimer=setTimeout(sync,700)}
@@ -434,7 +441,9 @@ if($('#testSoundBtn')){
  $('#testSoundBtn').onclick=()=>{
   const val=$('#profileSound').value;
   if(val==='default') return toast(trMsg('Rendszerhang kiválasztva.'));
-  const src=val==='custom'?`/api/profile/sound?v=${Date.now()}`:`/assets/sound-${val}.mp3`;
+  const wavSounds=['pop','chime','joy','whistle'];
+  const ext=wavSounds.includes(val)?'wav':'mp3';
+  const src=val==='custom'?`/api/profile/sound?v=${Date.now()}`:`/assets/sound-${val}.${ext}`;
   new Audio(src).play().catch(()=>toast(trMsg('A hang lejátszása nem sikerült.')));
  };
 }
