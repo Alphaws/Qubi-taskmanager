@@ -1,4 +1,4 @@
-const CACHE='qubi-v34';
+const CACHE='qubi-v35';
 const SHELL=['/','/index.html','/styles.css','/app.js','/manifest.webmanifest','/assets/qubi-mascot.png','/assets/qubi-home.png','/assets/qubi-work.png','/assets/qubi-personal.png','/assets/icon-192.png','/assets/icon-512.png','/assets/sound-pop.wav','/assets/sound-chime.wav','/assets/sound-joy.wav','/assets/sound-whistle.wav','/assets/sound-gentle.mp3','/assets/sound-bright.mp3'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));

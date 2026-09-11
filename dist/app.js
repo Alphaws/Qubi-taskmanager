@@ -491,6 +491,31 @@ if($('#testSoundBtn')){
 }
 $$('[data-view]').forEach(b=>b.onclick=()=>{const v=b.dataset.view;$$('.view').forEach(x=>x.classList.remove('active'));$(`#${v}View`).classList.add('active');$$('[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===v));if(v==='friends'){loadFriends();enablePush().catch(()=>{});}scrollTo({top:0,behavior:'smooth'})});$('#profileButton').onclick=()=>document.querySelector('[data-view="profile"]').click();
 $('#logoutBtn').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST'});localStorage.removeItem('qubi-user');showAuth()}catch(error){toast(error.message)}};
+if ($('#avatarInput')) {
+ $('#avatarInput').onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+   const compressed = await compressImage(file);
+   const blob = await (await fetch(compressed)).blob();
+   const response = await fetch('/api/profile/avatar', {
+    method: 'PUT',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': blob.type },
+    body: blob
+   });
+   if (!response.ok) throw new Error((await response.json()).error || trMsg('A profilkép feltöltése nem sikerült.'));
+   const data = await response.json();
+   user = data.user;
+   localStorage.setItem('qubi-user', JSON.stringify(user));
+   setAvatar($('#profileButton'), user);
+   setAvatar($('#bigAvatar'), user);
+   toast(trMsg('Profilkép sikeresen frissítve!'));
+  } catch (err) {
+   toast(trMsg(err.message || 'A profilkép feltöltése nem sikerült.'));
+  }
+ };
+}
 $('#profileForm').onsubmit=async e=>{e.preventDefault();try{const file=$('#soundFile').files[0];if(file){if(file.size>1024*1024)return toast(d('soundFileLimit'));const response=await fetch('/api/profile/sound',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file});if(!response.ok)throw new Error((await response.json()).error||d('soundUploadFailed'));$('#profileSound').value='custom'}const selectedLang=$('#profileLanguage').value;const data=await api('/api/profile',{method:'PUT',body:JSON.stringify({displayName:$('#profileDisplayName').value,preferredName:$('#profilePreferredName').value,language:selectedLang,reminderSound:$('#profileSound').value})});user=data.user;localStorage.setItem('qubi-user',JSON.stringify(user));localStorage.setItem('qubi-lang',selectedLang);location.reload()}catch(error){toast(error.message)}};
 let activeChatFriendId = null, chatPollTimer = null;
 

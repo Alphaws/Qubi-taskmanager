@@ -208,6 +208,12 @@ app.put('/api/profile', requireAuth, async (req, res) => {
 });
 app.put('/api/profile/sound',requireAuth,express.raw({type:['audio/mpeg','audio/wav','audio/ogg','audio/mp4','audio/webm'],limit:'1mb'}),async(req,res)=>{if(!Buffer.isBuffer(req.body)||!req.body.length)return res.status(400).json({error:'Érvénytelen vagy üres hangfájl.'});await pool.query('UPDATE users SET reminder_sound=$1,sound_mime=$2,sound_data=$3 WHERE id=$4',['custom',req.get('content-type'),req.body,req.user.id]);res.json({ok:true})});
 app.get('/api/profile/sound',requireAuth,async(req,res)=>{const row=(await pool.query('SELECT sound_mime,sound_data FROM users WHERE id=$1',[req.user.id])).rows[0];if(!row?.sound_data)return res.sendStatus(404);res.type(row.sound_mime).set('Cache-Control','private, max-age=3600').send(row.sound_data)});
+app.put('/api/profile/avatar',requireAuth,express.raw({type:['image/jpeg','image/png','image/webp','image/gif'],limit:'2mb'}),async(req,res)=>{
+  if(!Buffer.isBuffer(req.body)||!req.body.length)return res.status(400).json({error:'Érvénytelen vagy üres képfájl.'});
+  const dataUrl=`data:${req.get('content-type')||'image/jpeg'};base64,${req.body.toString('base64')}`;
+  const updated=(await pool.query('UPDATE users SET avatar_url=$1 WHERE id=$2 RETURNING id,email,display_name,preferred_name,language,reminder_sound,avatar_url,is_pro,pro_until,active_skin,active_theme',[dataUrl,req.user.id])).rows[0];
+  res.json({user:publicUser(updated)});
+});
 
 // PRO Features API
 app.post('/api/pro/upgrade', requireAuth, async (req, res) => {
