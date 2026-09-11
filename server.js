@@ -139,7 +139,6 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 }
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: 'draft-8', legacyHeaders: false });
-const publicUser = user => ({ id: user.id, email: user.email, displayName: user.display_name, preferredName: user.preferred_name, language: user.language || 'hu', reminderSound:user.reminder_sound||'gentle', avatarUrl: user.avatar_url });
 const mailer = process.env.SMTP_HOST ? nodemailer.createTransport({ host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT || 25), secure: process.env.SMTP_SECURE === 'true', auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD } : undefined }) : null;
 const pushEnabled=Boolean(process.env.VAPID_PUBLIC_KEY&&process.env.VAPID_PRIVATE_KEY);
 if(pushEnabled)webPush.setVapidDetails(process.env.VAPID_SUBJECT||'mailto:admin@qubi.vane.hu',process.env.VAPID_PUBLIC_KEY,process.env.VAPID_PRIVATE_KEY);
