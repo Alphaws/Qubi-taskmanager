@@ -293,7 +293,49 @@ function initWs() {
 }
 
 function showAuth(){user=null;if(socket){socket.close();socket=null;} $('#appShell').classList.add('hidden');$('#authView').classList.remove('hidden');applyLanguage();}
-async function showApp(){localStorage.setItem('qubi-user',JSON.stringify(user));if(user?.language)localStorage.setItem('qubi-lang',user.language);tasks=await localRead();$('#authView').classList.add('hidden');$('#appShell').classList.remove('hidden');const first=user.preferredName||user.displayName.split(' ')[0];$('#greetingName').textContent=first;$('#profileName').textContent=user.displayName;$('#profileEmail').textContent=user.email;$('#profileDisplayName').value=user.displayName;$('#profilePreferredName').value=user.preferredName||'';$('#profileLanguage').value=user.language||getLang();$('#profileSound').value=user.reminderSound||'gentle';$('#dateLabel').textContent=new Date().toLocaleDateString((uiText[getLang()]||uiText.hu).locale,{month:'long',day:'numeric',weekday:'long'}).toUpperCase();setAvatar($('#profileButton'),user);setAvatar($('#bigAvatar'),user);applyLanguage();render();setOnlineState();sync();loadFriends();initWs();}
+async function showApp(){
+ const displayName = user?.display_name || user?.displayName || user?.email?.split('@')[0] || 'Felhasználó';
+ const preferredName = user?.preferred_name || user?.preferredName || '';
+ const email = user?.email || '';
+ const language = user?.language || getLang();
+ const reminderSound = user?.reminder_sound || user?.reminderSound || 'gentle';
+ const activeTheme = user?.active_theme || user?.activeTheme || 'default';
+ const activeSkin = user?.active_skin || user?.activeSkin || 'default';
+
+ user.displayName = displayName;
+ user.preferredName = preferredName;
+ user.email = email;
+ user.language = language;
+ user.reminderSound = reminderSound;
+ user.activeTheme = activeTheme;
+ user.activeSkin = activeSkin;
+
+ localStorage.setItem('qubi-user',JSON.stringify(user));
+ if(user?.language)localStorage.setItem('qubi-lang',user.language);
+ tasks=await localRead();
+ $('#authView').classList.add('hidden');
+ $('#appShell').classList.remove('hidden');
+ const first = preferredName || displayName.split(' ')[0] || displayName;
+ $('#greetingName').textContent = first;
+ $('#profileName').textContent = displayName;
+ $('#profileEmail').textContent = email;
+ $('#profileDisplayName').value = displayName;
+ $('#profilePreferredName').value = preferredName;
+ $('#profileLanguage').value = language;
+ $('#profileSound').value = reminderSound;
+ if ($('#profileTheme')) $('#profileTheme').value = activeTheme;
+ if ($('#profileSkin')) $('#profileSkin').value = activeSkin;
+ $('#dateLabel').textContent = new Date().toLocaleDateString((uiText[getLang()]||uiText.hu).locale,{month:'long',day:'numeric',weekday:'long'}).toUpperCase();
+ setAvatar($('#profileButton'),user);
+ setAvatar($('#bigAvatar'),user);
+ applyUserCustomizations();
+ applyLanguage();
+ render();
+ setOnlineState();
+ sync();
+ loadFriends();
+ initWs();
+}
 async function init(){try{const data=await api('/api/auth/me');$('#googleLogin').classList.toggle('hidden',!data.googleEnabled);if(data.user){user=data.user;await showApp()}else{const cached=localStorage.getItem('qubi-user');if(cached){user=JSON.parse(cached);await showApp()}else showAuth()}}catch{const cached=localStorage.getItem('qubi-user');if(cached){user=JSON.parse(cached);await showApp()}else showAuth()}const params=new URLSearchParams(location.search);if(params.get('auth')){$('#authError').textContent=trMsg(params.get('auth')==='failed'?d('googleAuthFailed'):d('googleAuthNotConfigured'));history.replaceState({},'',location.pathname)}}
 
 $$('[data-auth-tab]').forEach(b=>b.onclick=()=>{$$('[data-auth-tab]').forEach(x=>x.classList.toggle('active',x===b));$('#loginForm').classList.toggle('hidden',b.dataset.authTab!=='login');$('#registerForm').classList.toggle('hidden',b.dataset.authTab!=='register');$('#authError').textContent=''});
