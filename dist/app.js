@@ -86,7 +86,7 @@ function applyLanguage(){
  const lang=getLang(); document.documentElement.lang=lang; translateStatic();
  const labels={today:t('today'),calendar:t('calendar'),friends:t('friends'),stats:t('stats'),profile:t('profile')};
  $$('.nav-item[data-view]').forEach(button=>{const small=button.querySelector('small');if(small)small.textContent=labels[button.dataset.view];else{const span=button.querySelector('span');const badge=button.querySelector('#friendsBadge');button.replaceChildren(span,document.createTextNode(` ${labels[button.dataset.view]} `));if(badge)button.appendChild(badge);}});
- $('#addTaskBtn').lastChild.textContent=` ${t('add')}`;$('#profileForm button').textContent=t('save');$('#inviteFriendBtn').textContent=t('invite');$('#logoutBtn').textContent=t('logout');
+ $('#addTaskBtn').lastChild.textContent=` ${t('add')}`;$('#profileForm button[type=submit]').textContent=t('save');$('#inviteFriendBtn').textContent=t('invite');$('#logoutBtn').textContent=t('logout');
  if($('#uploadPhotoLabel'))$('#uploadPhotoLabel').textContent=d('attachPhoto');
 }
 
