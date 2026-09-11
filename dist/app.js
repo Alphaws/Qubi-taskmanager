@@ -673,7 +673,19 @@ async function loadMessages() {
    const timeStr = isNaN(dateObj) ? '' : dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
    const timeSpan = document.createElement('span');
    timeSpan.className = 'chat-time';
-   timeSpan.textContent = timeStr;
+   
+   if (isMe) {
+     const readIcon = m.read_at ? ' ✓✓' : ' ✓';
+     timeSpan.textContent = `${timeStr}${readIcon}`;
+     if (m.read_at) {
+       timeSpan.title = `Elolvasva: ${new Date(m.read_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+       timeSpan.style.color = 'var(--purple)';
+     } else {
+       timeSpan.title = 'Elküldve (még nem olvasta)';
+     }
+   } else {
+     timeSpan.textContent = timeStr;
+   }
 
    wrap.appendChild(bubble);
    wrap.appendChild(timeSpan);

@@ -432,7 +432,7 @@ app.get('/api/friends/messages/:friendId', requireAuth, async (req, res) => {
   const friendId = req.params.friendId;
   await pool.query('UPDATE messages SET read_at=now() WHERE sender_id=$1 AND receiver_id=$2 AND read_at IS NULL', [friendId, req.user.id]);
   const messages = (await pool.query(`
-    SELECT m.id, m.sender_id, m.receiver_id, m.content, m.created_at
+    SELECT m.id, m.sender_id, m.receiver_id, m.content, m.created_at, m.read_at
     FROM messages m
     WHERE (m.sender_id=$1 AND m.receiver_id=$2) OR (m.sender_id=$2 AND m.receiver_id=$1)
     ORDER BY m.created_at ASC LIMIT 200
