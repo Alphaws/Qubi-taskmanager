@@ -91,9 +91,25 @@ function notifyUserWs(userId, data) {
 
 passport.serializeUser((user, done) => done(null, user.id));
 passport.deserializeUser(async (id, done) => {
-  try { done(null, (await pool.query('SELECT id,email,display_name,preferred_name,language,reminder_sound,avatar_url FROM users WHERE id=$1', [id])).rows[0] || false); }
+  try { done(null, (await pool.query('SELECT id,email,display_name,preferred_name,language,reminder_sound,avatar_url,is_pro,pro_until,active_skin,active_theme FROM users WHERE id=$1', [id])).rows[0] || false); }
   catch (error) { done(error); }
 });
+
+function publicUser(user) {
+  return {
+    id: user.id,
+    email: user.email,
+    display_name: user.display_name,
+    preferred_name: user.preferred_name,
+    language: user.language,
+    reminder_sound: user.reminder_sound,
+    avatar_url: user.avatar_url,
+    is_pro: user.is_pro || false,
+    pro_until: user.pro_until || null,
+    active_skin: user.active_skin || 'default',
+    active_theme: user.active_theme || 'default'
+  };
+}
 
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
@@ -186,11 +202,101 @@ app.post('/api/auth/reset-password', authLimiter, async (req, res) => {
 });
 app.put('/api/profile', requireAuth, async (req, res) => {
   const displayName=String(req.body.displayName||'').trim(),preferredName=String(req.body.preferredName||'').trim(),language=String(req.body.language||'hu'),reminderSound=String(req.body.reminderSound||'gentle');
+  const activeSkin = String(req.body.activeSkin || req.user.active_skin || 'default');
+  const activeTheme = String(req.body.activeTheme || req.user.active_theme || 'default');
   if(displayName.length<2||displayName.length>60||preferredName.length>40||!['hu','en','uk'].includes(language)||!['default','gentle','bright','custom'].includes(reminderSound))return res.status(400).json({error:'Érvénytelen profiladatok.'});
-  const updated=(await pool.query('UPDATE users SET display_name=$1,preferred_name=$2,language=$3,reminder_sound=$4 WHERE id=$5 RETURNING id,email,display_name,preferred_name,language,reminder_sound,avatar_url',[displayName,preferredName||null,language,reminderSound,req.user.id])).rows[0];res.json({user:publicUser(updated)});
+  const updated=(await pool.query('UPDATE users SET display_name=$1,preferred_name=$2,language=$3,reminder_sound=$4,active_skin=$5,active_theme=$6 WHERE id=$7 RETURNING id,email,display_name,preferred_name,language,reminder_sound,avatar_url,is_pro,pro_until,active_skin,active_theme',[displayName,preferredName||null,language,reminderSound,activeSkin,activeTheme,req.user.id])).rows[0];res.json({user:publicUser(updated)});
 });
 app.put('/api/profile/sound',requireAuth,express.raw({type:['audio/mpeg','audio/wav','audio/ogg','audio/mp4','audio/webm'],limit:'1mb'}),async(req,res)=>{if(!Buffer.isBuffer(req.body)||!req.body.length)return res.status(400).json({error:'Érvénytelen vagy üres hangfájl.'});await pool.query('UPDATE users SET reminder_sound=$1,sound_mime=$2,sound_data=$3 WHERE id=$4',['custom',req.get('content-type'),req.body,req.user.id]);res.json({ok:true})});
 app.get('/api/profile/sound',requireAuth,async(req,res)=>{const row=(await pool.query('SELECT sound_mime,sound_data FROM users WHERE id=$1',[req.user.id])).rows[0];if(!row?.sound_data)return res.sendStatus(404);res.type(row.sound_mime).set('Cache-Control','private, max-age=3600').send(row.sound_data)});
+
+// PRO Features API
+app.post('/api/pro/upgrade', requireAuth, async (req, res) => {
+  const result = await pool.query("UPDATE users SET is_pro=true, pro_until=now()+interval '1 year' WHERE id=$1 RETURNING id,email,display_name,preferred_name,language,reminder_sound,avatar_url,is_pro,pro_until,active_skin,active_theme", [req.user.id]);
+  res.json({ user: publicUser(result.rows[0]), message: 'Gratulálunk! Qubi PRO fiókod aktiválva lett 1 évre!' });
+});
+
+app.post('/api/pro/ai-breakdown', requireAuth, async (req, res) => {
+  const taskTitle = String(req.body.title || '').trim();
+  if (!taskTitle) return res.status(400).json({ error: 'Adj meg egy feladat nevet.' });
+
+  // Intelligent task breakdown logic
+  let subtasks = [];
+  const lower = taskTitle.toLowerCase();
+
+  if (lower.includes('főzés') || lower.includes('ebéd') || lower.includes('vacsora') || lower.includes('recept')) {
+    subtasks = ['Recept kiválasztása & hozzávalók ellenőrzése', 'Bevásárlólista összeállítása', 'Hozzávalók előkészítése és darabolása', 'Főzés / Sütés', 'Tálalás és elpakolás'];
+  } else if (lower.includes('tanulás') || lower.includes('vizsga') || lower.includes('teszt') || lower.includes('könyv')) {
+    subtasks = ['Tananyag áttekintése és fejezetek beosztása', 'Vázlat és jegyzetek készítése', 'Főbb fogalmak kártyázása / ismétlése', 'Gyakorló feladatok megoldása', 'Összefoglaló átnézése vizsga előtt'];
+  } else if (lower.includes('takarítás') || lower.includes('rendrakás') || lower.includes('szoba')) {
+    subtasks = ['Szemét összegyűjtése és kidobása', 'Ruhák elpakolása és hajtogatása', 'Portörlés a felületekről', 'Porszívózás és felmosás', 'Szellőztetés'];
+  } else if (lower.includes('utazás') || lower.includes('nyaralás') || lower.includes('csomagolás')) {
+    subtasks = ['Ruhák és tisztálkodószerek összegyűjtése', 'Iratok, jegyek és töltők ellenőrzése', 'Bőrönd bepakolása', 'Lakás biztonsági ellenőrzése (zár, ablakok)', 'Időben indulás az állomásra/repülőtérre'];
+  } else if (lower.includes('projekt') || lower.includes('fejlesztés') || lower.includes('kód')) {
+    subtasks = ['Követelmények és tervek áttekintése', 'Kódvázlat és architektúra kialakítása', 'Megvalósítás (Funkciók kódolása)', 'Tesztelés és hibajavítás', 'Dokumentáció és kiadás (Deploy)'];
+  } else {
+    subtasks = [
+      `${taskTitle} – előkészület és célok tisztázása`,
+      `${taskTitle} – első szakasz megvalósítása`,
+      `${taskTitle} – felülvizsgálat és finomítás`,
+      `${taskTitle} – befejezés és lezárás`
+    ];
+  }
+
+  res.json({ title: taskTitle, subtasks });
+});
+
+// Shared Missions API
+app.get('/api/shared-tasks', requireAuth, async (req, res) => {
+  const rows = (await pool.query(`
+    SELECT st.*, u1.display_name AS creator_name, u2.display_name AS assignee_name
+    FROM shared_tasks st
+    JOIN users u1 ON u1.id = st.creator_id
+    LEFT JOIN users u2 ON u2.id = st.assignee_id
+    WHERE st.creator_id = $1 OR st.assignee_id = $1
+    ORDER BY st.created_at DESC
+  `, [req.user.id])).rows;
+  res.json({ sharedTasks: rows });
+});
+
+app.post('/api/shared-tasks', requireAuth, async (req, res) => {
+  const title = String(req.body.title || '').trim().slice(0, 120);
+  const description = String(req.body.description || '').trim().slice(0, 1000);
+  const category = ['Tanulás', 'Otthon', 'Munka', 'Saját'].includes(req.body.category) ? req.body.category : 'Munka';
+  const assigneeId = req.body.assigneeId || null;
+  const dueAt = req.body.dueAt || null;
+
+  if (!title) return res.status(400).json({ error: 'A cím kötelező.' });
+
+  const result = await pool.query(`
+    INSERT INTO shared_tasks(creator_id, assignee_id, title, description, category, due_at)
+    VALUES($1, $2, $3, $4, $5, $6)
+    RETURNING *
+  `, [req.user.id, assigneeId, title, description, category, dueAt]);
+
+  if (assigneeId) {
+    notifyUserWs(assigneeId, { type: 'shared_task_created', task: result.rows[0], creatorName: req.user.display_name });
+  }
+
+  res.status(201).json({ sharedTask: result.rows[0] });
+});
+
+app.put('/api/shared-tasks/:id/toggle', requireAuth, async (req, res) => {
+  const id = req.params.id;
+  const taskRes = await pool.query('SELECT * FROM shared_tasks WHERE id=$1 AND (creator_id=$2 OR assignee_id=$2)', [id, req.user.id]);
+  if (taskRes.rowCount === 0) return res.status(404).json({ error: 'Küldetés nem található.' });
+
+  const task = taskRes.rows[0];
+  const newDone = !task.done;
+  const updated = (await pool.query('UPDATE shared_tasks SET done=$1, updated_at=now() WHERE id=$2 RETURNING *', [newDone, id])).rows[0];
+
+  const partnerId = task.creator_id === req.user.id ? task.assignee_id : task.creator_id;
+  if (partnerId) {
+    notifyUserWs(partnerId, { type: 'shared_task_updated', task: updated, updatedBy: req.user.display_name });
+  }
+
+  res.json({ sharedTask: updated });
+});
 app.get('/api/push/key', requireAuth, (_req,res)=>res.json({publicKey:pushEnabled?process.env.VAPID_PUBLIC_KEY:null}));
 app.post('/api/push/subscribe', requireAuth, async(req,res)=>{const subscription=req.body;if(!subscription?.endpoint||!subscription?.keys?.p256dh||!subscription?.keys?.auth)return res.status(400).json({error:'Érvénytelen értesítési feliratkozás.'});await pool.query('INSERT INTO push_subscriptions(endpoint,user_id,subscription) VALUES($1,$2,$3) ON CONFLICT(endpoint) DO UPDATE SET user_id=EXCLUDED.user_id,subscription=EXCLUDED.subscription',[subscription.endpoint,req.user.id,subscription]);res.status(201).json({ok:true})});
 

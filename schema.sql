@@ -96,6 +96,23 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at timestamptz;
-CREATE INDEX IF NOT EXISTS messages_conversation_idx ON messages(sender_id, receiver_id, created_at);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_pro boolean NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pro_until timestamptz;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS active_skin text NOT NULL DEFAULT 'default';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS active_theme text NOT NULL DEFAULT 'default';
+
+CREATE TABLE IF NOT EXISTS shared_tasks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  creator_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  assignee_id uuid REFERENCES users(id) ON DELETE SET NULL,
+  title text NOT NULL CHECK (char_length(title) BETWEEN 1 AND 120),
+  description text,
+  category text NOT NULL DEFAULT 'Munka',
+  due_at timestamptz,
+  done boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS shared_tasks_members_idx ON shared_tasks(creator_id, assignee_id);
+
 

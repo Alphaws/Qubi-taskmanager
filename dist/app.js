@@ -646,7 +646,80 @@ if($('#installBtn')){
   if(choice.outcome==='accepted')$('#installBtn').classList.add('hidden');
   deferredInstallPrompt=null;
  };
+}// PRO Features & Theme Logic
+function applyUserCustomizations() {
+ if (!user) return;
+ if (user.is_pro) {
+  $('#proBadgeHeader')?.classList.remove('hidden');
+  document.body.className = user.active_theme && user.active_theme !== 'default' ? `theme-${user.active_theme}` : '';
+  const mascot = $('#mascot');
+  if (mascot && user.active_skin && user.active_skin !== 'default') {
+   mascot.src = `assets/qubi-${user.active_skin}.png`;
+   mascot.onerror = () => { mascot.src = 'assets/qubi-mascot.png'; };
+  }
+ } else {
+  $('#proBadgeHeader')?.classList.add('hidden');
+  document.body.className = '';
+ }
 }
+
+$('#openProModalBtn')?.addEventListener('click', () => { $('#proDialog')?.showModal(); });
+$('#closeProDialog')?.addEventListener('click', () => { $('#proDialog')?.close(); });
+$('#activateProBtn')?.addEventListener('click', async () => {
+ try {
+  const data = await api('/api/pro/upgrade', { method: 'POST' });
+  user = data.user;
+  applyUserCustomizations();
+  toast(data.message || 'Qubi PRO aktiválva!');
+  $('#proDialog')?.close();
+ } catch (err) { toast(err.message); }
+});
+
+$('#aiBreakdownBtn')?.addEventListener('click', async () => {
+ const titleInput = $('#taskTitle');
+ const title = titleInput?.value.trim();
+ if (!title) return toast('Először írd be a küldetés nevét!');
+ const btn = $('#aiBreakdownBtn');
+ btn.disabled = true;
+ btn.textContent = '✨ Generálás...';
+ try {
+  const data = await api('/api/pro/ai-breakdown', { method: 'POST', body: JSON.stringify({ title }) });
+  if (data.subtasks && data.subtasks.length > 0) {
+   const descArea = $('#taskDescription');
+   if (descArea) {
+    const existing = descArea.value.trim();
+    const subtaskText = "✦ Lépések (AI):\n" + data.subtasks.map(s => `- ${s}`).join("\n");
+    descArea.value = existing ? `${existing}\n\n${subtaskText}` : subtaskText;
+   }
+   toast('AI Lépések hozzáadva a leíráshoz!');
+  }
+ } catch (err) { toast(err.message); }
+ finally {
+  btn.disabled = false;
+  btn.textContent = '✨ AI Bontás';
+ }
+});
+
+// Update Profile Form listener
+$('#profileForm').onsubmit = async (e) => {
+ e.preventDefault();
+ const displayName = $('#profileDisplayName').value.trim();
+ const preferredName = $('#profilePreferredName').value.trim();
+ const language = $('#profileLanguage').value;
+ const reminderSound = $('#profileSound').value;
+ const activeTheme = $('#profileTheme')?.value || 'default';
+ const activeSkin = $('#profileSkin')?.value || 'default';
+ try {
+  const data = await api('/api/profile', { method: 'PUT', body: JSON.stringify({ displayName, preferredName, language, reminderSound, activeTheme, activeSkin }) });
+  user = data.user;
+  applyUserCustomizations();
+  applyLanguage();
+  toast(trMsg('saved'));
+ } catch (err) { toast(err.message); }
+};
+
+if ($('#closeChatBtn')) $('#closeChatBtn').onclick = closeChat;
+
 addEventListener('online',()=>{setOnlineState();sync()});addEventListener('offline',setOnlineState);setInterval(checkReminders,30000);$('#dateLabel').textContent=new Date().toLocaleDateString((uiText[getLang()]||uiText.hu).locale,{month:'long',day:'numeric',weekday:'long'}).toUpperCase();
 if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));
 const resetToken=new URLSearchParams(location.search).get('reset');if(resetToken)addEventListener('DOMContentLoaded',()=>$('#resetDialog').showModal());
@@ -661,6 +734,3 @@ $$('.toggle-pw-btn').forEach(btn=>{
  };
 });
 init();
-
-
-
